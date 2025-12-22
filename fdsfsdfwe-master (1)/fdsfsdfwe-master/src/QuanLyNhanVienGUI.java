@@ -22,7 +22,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     private JTabbedPane tabbedPane;
     
     // --- CÁC TAB CHỨC NĂNG ---
-    private TabDashboard tabDashboard; // [MỚI - GIAI ĐOẠN 4]
+    private TabDashboard tabDashboard; 
     private TabNhanVien tabNhanVien;
     private TabPhongBan tabPhongBan;
     private TabDuAn tabDuAn;
@@ -35,6 +35,9 @@ public class QuanLyNhanVienGUI extends JFrame {
     private TabTuyenDung tabTuyenDung;
     private TabDaoTao tabDaoTao;
     private TabTaiSan tabTaiSan;
+    
+    // --- TAB HỆ THỐNG (MỚI) ---
+    private TabHeThong tabHeThong;
 
     // Các tiện ích
     NumberFormat currencyFormatter;
@@ -80,7 +83,7 @@ public class QuanLyNhanVienGUI extends JFrame {
         tabbedPane = new JTabbedPane();
         
         // Init Tabs
-        tabDashboard = new TabDashboard(this); // [MỚI - GIAI ĐOẠN 4]
+        tabDashboard = new TabDashboard(this); 
         tabNhanVien = new TabNhanVien(this);
         tabPhongBan = new TabPhongBan(this);
         tabDuAn = new TabDuAn(this);
@@ -91,9 +94,8 @@ public class QuanLyNhanVienGUI extends JFrame {
         tabTaiSan = new TabTaiSan(this);
         tabBaoCao = new TabBaoCao(this);
         tabNhatKy = new TabNhatKy(this);
+        tabHeThong = new TabHeThong(this); // Khởi tạo Tab Hệ Thống
 
-        // [GIAI ĐOẠN 4] Không Add Tab cố định ở đây nữa, 
-        // mà sẽ Add trong hàm setupTabsByRole sau khi đăng nhập.
         // Mặc định hiển thị Dashboard trước.
         tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan hệ thống");
 
@@ -101,8 +103,13 @@ public class QuanLyNhanVienGUI extends JFrame {
         
         refreshAllTabs();
     }
+    
+    // Getter để lấy user hiện tại cho các Tab con sử dụng (Ví dụ: Đổi mật khẩu)
+    public String getCurrentUser() {
+        return currentUser;
+    }
 
-    // [MỚI - GIAI ĐOẠN 4] Hàm phân quyền hiển thị Tab
+    // Hàm phân quyền hiển thị Tab
     private void setupTabsByRole(String role) {
         tabbedPane.removeAll();
         
@@ -120,6 +127,9 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Tài sản", null, tabTaiSan, "Quản lý cấp phát Tài sản/Thiết bị");
             tabbedPane.addTab("Báo cáo & Thống kê", null, tabBaoCao, "Xem biểu đồ thưởng phạt");
             tabbedPane.addTab("Nhật ký hệ thống", null, tabNhatKy, "Log admin");
+            
+            // [MỚI] Tab Hệ thống cho Admin
+            tabbedPane.addTab("Hệ thống & Bảo mật", null, tabHeThong, "Backup, Restore & Đổi mật khẩu");
         } 
         else if (role.equals("hr")) {
             tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "");
@@ -127,16 +137,21 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "");
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "");
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "");
+            // HR cũng được đổi mật khẩu
+            tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         } 
         else if (role.equals("accountant")) {
             tabbedPane.addTab("Quản lý Lương", null, tabLuong, "");
             tabbedPane.addTab("Tài sản", null, tabTaiSan, "");
             tabbedPane.addTab("Báo cáo", null, tabBaoCao, "");
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "Xem công để tính lương");
+             // Accountant cũng được đổi mật khẩu
+            tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         }
         else {
             // User thường
             tabbedPane.addTab("Thông tin cá nhân", null, new JPanel(), "Đang cập nhật...");
+            tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         }
         refreshAllTabs();
     }
@@ -377,7 +392,7 @@ public class QuanLyNhanVienGUI extends JFrame {
                 String user = txtUser.getText();
                 String pass = new String(txtPass.getPassword());
 
-                // [CẬP NHẬT GIAI ĐOẠN 4] Lấy Role thay vì chỉ True/False
+                // Lấy Role thay vì chỉ True/False
                 String role = quanLyTaiKhoan.dangNhap(user, pass);
 
                 if (role != null) {
@@ -413,18 +428,45 @@ public class QuanLyNhanVienGUI extends JFrame {
     }
 
     private void hienThiManHinhTaoTaiKhoan() {
-        String newUser = JOptionPane.showInputDialog(this, "Nhập tên đăng nhập mới:");
-        if (newUser == null || newUser.trim().isEmpty()) return;
+        JPanel panel = new JPanel(new GridLayout(0, 2, 5, 5));
         
-        String newPass = JOptionPane.showInputDialog(this, "Nhập mật khẩu:");
-        if (newPass == null || newPass.trim().isEmpty()) return;
+        JTextField txtNewUser = new JTextField();
+        JPasswordField txtNewPass = new JPasswordField();
+        
+        // ComboBox chọn Role
+        String[] roles = {"user", "admin", "hr", "accountant"};
+        JComboBox<String> cmbRole = new JComboBox<>(roles);
+        
+        panel.add(new JLabel("Tên đăng nhập mới:"));
+        panel.add(txtNewUser);
+        
+        panel.add(new JLabel("Mật khẩu:"));
+        panel.add(txtNewPass);
+        
+        panel.add(new JLabel("Vai trò (Role):"));
+        panel.add(cmbRole);
 
-        boolean thanhCong = quanLyTaiKhoan.themTaiKhoan(newUser, newPass);
-        if (thanhCong) {
-            JOptionPane.showMessageDialog(this, "Tạo tài khoản thành công!");
-            ghiNhatKy("Tạo tài khoản", "Đã tạo user mới: " + newUser);
-        } else {
-            JOptionPane.showMessageDialog(this, "Tên tài khoản đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        int result = JOptionPane.showConfirmDialog(this, panel, "Tạo Tài khoản & Phân quyền", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        
+        if (result == JOptionPane.OK_OPTION) {
+            String newUser = txtNewUser.getText().trim();
+            String newPass = new String(txtNewPass.getPassword()).trim();
+            String role = (String) cmbRole.getSelectedItem();
+
+            if (newUser.isEmpty() || newPass.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ thông tin!");
+                return;
+            }
+
+            // Gọi hàm thêm tài khoản có tham số Role
+            boolean thanhCong = quanLyTaiKhoan.themTaiKhoan(newUser, newPass, role);
+            
+            if (thanhCong) {
+                JOptionPane.showMessageDialog(this, "Tạo tài khoản thành công!\nUser: " + newUser + "\nRole: " + role);
+                ghiNhatKy("Tạo tài khoản", "Đã tạo user: " + newUser + " (Quyền: " + role + ")");
+            } else {
+                JOptionPane.showMessageDialog(this, "Tên tài khoản đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -442,7 +484,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     }
     
     public void refreshAllTabs() {
-        if (tabDashboard != null) tabDashboard.refreshDashboard(); // [MỚI]
+        if (tabDashboard != null) tabDashboard.refreshDashboard(); 
         if (tabNhanVien != null) tabNhanVien.refreshTableNV();
         if (tabNhanVien != null) tabNhanVien.updatePhongBanComboBox();
         
