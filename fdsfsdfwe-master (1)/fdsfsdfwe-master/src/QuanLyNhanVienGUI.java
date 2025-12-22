@@ -1,5 +1,7 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.sql.*;
@@ -10,27 +12,36 @@ import java.util.Locale;
 
 public class QuanLyNhanVienGUI extends JFrame {
 
-    
+    // Danh sách dữ liệu (Cache trên RAM)
     List<NhanVien> danhSachNV;
     List<PhongBan> danhSachPB;
     List<DuAn> danhSachDuAn;
     private List<LogEntry> danhSachLog;
 
-    
+    // Các thành phần giao diện
     private JTabbedPane tabbedPane;
+    
+    // --- CÁC TAB CHỨC NĂNG ---
+    private TabDashboard tabDashboard; // [MỚI - GIAI ĐOẠN 4]
     private TabNhanVien tabNhanVien;
     private TabPhongBan tabPhongBan;
     private TabDuAn tabDuAn;
-    private TabHieuSuat tabHieuSuat;
+    private TabHieuSuat tabHieuSuat; 
     private TabLuong tabLuong;
     private TabBaoCao tabBaoCao;
     private TabNhatKy tabNhatKy;
+    
+    // --- CÁC TAB MỚI (ERP - Giai đoạn 3) ---
+    private TabTuyenDung tabTuyenDung;
+    private TabDaoTao tabDaoTao;
+    private TabTaiSan tabTaiSan;
 
+    // Các tiện ích
     NumberFormat currencyFormatter;
     private QuanLyTaiKhoan quanLyTaiKhoan; 
     private String currentUser = ""; 
     
-    
+    // Header Components
     private JButton btnTaoTaiKhoan; 
     private JLabel lblXinChao; 
     private JLabel lblThoiGianPhien; 
@@ -38,91 +49,144 @@ public class QuanLyNhanVienGUI extends JFrame {
     private long startSessionTime;   
 
     public QuanLyNhanVienGUI() {
-        
+        // 1. Khởi tạo Database
         DatabaseHandler.createNewDatabase();
         
-        setTitle("Phần mềm Quản lý Nhân sự (Connected SQLite)");
-        setSize(1250, 750); 
+        // 2. Thiết lập cửa sổ chính
+        setTitle("Hệ thống Quản trị Doanh nghiệp Tổng thể (ERP) - Full Version");
+        setSize(1350, 800); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
+        setLocationRelativeTo(null); 
         
+        // 3. Khởi tạo tiện ích
         currencyFormatter = NumberFormat.getCurrencyInstance(Locale.of("vi", "VN"));
         quanLyTaiKhoan = new QuanLyTaiKhoan();
         
-        
+        // 4. Khởi tạo danh sách
         danhSachNV = new ArrayList<>();
         danhSachPB = new ArrayList<>();
         danhSachDuAn = new ArrayList<>();
         danhSachLog = new ArrayList<>();
         
+        // 5. Nạp dữ liệu
         loadDataFromDB();
         
-        ghiNhatKy("Khởi động", "Ứng dụng đã được bật");
+        ghiNhatKy("Khởi động", "Ứng dụng đã được bật lên");
 
+        // 6. Tạo giao diện
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
         tabbedPane = new JTabbedPane();
+        
+        // Init Tabs
+        tabDashboard = new TabDashboard(this); // [MỚI - GIAI ĐOẠN 4]
         tabNhanVien = new TabNhanVien(this);
         tabPhongBan = new TabPhongBan(this);
         tabDuAn = new TabDuAn(this);
         tabLuong = new TabLuong(this);
-        tabHieuSuat = new TabHieuSuat(this);
+        tabHieuSuat = new TabHieuSuat(this); 
+        tabTuyenDung = new TabTuyenDung(this);
+        tabDaoTao = new TabDaoTao(this);
+        tabTaiSan = new TabTaiSan(this);
         tabBaoCao = new TabBaoCao(this);
         tabNhatKy = new TabNhatKy(this);
 
-        tabbedPane.addTab("Quản lý Nhân viên", null, tabNhanVien, "Quản lý thông tin nhân viên");
-        tabbedPane.addTab("Xem theo Phòng ban", null, tabPhongBan, "Xem nhân viên theo phòng ban");
-        tabbedPane.addTab("Quản lý Dự án", null, tabDuAn, "Quản lý các dự án");
-        tabbedPane.addTab("Quản lý Lương", null, tabLuong, "Xem bảng lương nhân viên");
-        tabbedPane.addTab("Quản lý Hiệu suất", null, tabHieuSuat, "Quản lý và đánh giá hiệu suất");
-        tabbedPane.addTab("Báo cáo", null, tabBaoCao, "Báo cáo và Thống kê");
+        // [GIAI ĐOẠN 4] Không Add Tab cố định ở đây nữa, 
+        // mà sẽ Add trong hàm setupTabsByRole sau khi đăng nhập.
+        // Mặc định hiển thị Dashboard trước.
+        tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan hệ thống");
 
         add(tabbedPane, BorderLayout.CENTER);
+        
         refreshAllTabs();
     }
 
-    //LOAD DỮ LIỆU, NẠP MẪU
+    // [MỚI - GIAI ĐOẠN 4] Hàm phân quyền hiển thị Tab
+    private void setupTabsByRole(String role) {
+        tabbedPane.removeAll();
+        
+        // Ai cũng thấy Dashboard
+        tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan");
+        
+        if (role.equals("admin")) {
+            tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "Quản lý hồ sơ nhân viên");
+            tabbedPane.addTab("Phòng ban", null, tabPhongBan, "Xem nhân viên theo phòng ban");
+            tabbedPane.addTab("Chấm công & Nghỉ phép", null, tabHieuSuat, "Quản lý thời gian làm việc & Vi phạm");
+            tabbedPane.addTab("Quản lý Lương", null, tabLuong, "Tính lương & Xuất phiếu lương");
+            tabbedPane.addTab("Quản lý Dự án", null, tabDuAn, "Phân công dự án");
+            tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "Quản lý Tin tuyển dụng & Ứng viên");
+            tabbedPane.addTab("Đào tạo", null, tabDaoTao, "Quản lý Khóa học nội bộ");
+            tabbedPane.addTab("Tài sản", null, tabTaiSan, "Quản lý cấp phát Tài sản/Thiết bị");
+            tabbedPane.addTab("Báo cáo & Thống kê", null, tabBaoCao, "Xem biểu đồ thưởng phạt");
+            tabbedPane.addTab("Nhật ký hệ thống", null, tabNhatKy, "Log admin");
+        } 
+        else if (role.equals("hr")) {
+            tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "");
+            tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "");
+            tabbedPane.addTab("Đào tạo", null, tabDaoTao, "");
+            tabbedPane.addTab("Chấm công", null, tabHieuSuat, "");
+            tabbedPane.addTab("Phòng ban", null, tabPhongBan, "");
+        } 
+        else if (role.equals("accountant")) {
+            tabbedPane.addTab("Quản lý Lương", null, tabLuong, "");
+            tabbedPane.addTab("Tài sản", null, tabTaiSan, "");
+            tabbedPane.addTab("Báo cáo", null, tabBaoCao, "");
+            tabbedPane.addTab("Chấm công", null, tabHieuSuat, "Xem công để tính lương");
+        }
+        else {
+            // User thường
+            tabbedPane.addTab("Thông tin cá nhân", null, new JPanel(), "Đang cập nhật...");
+        }
+        refreshAllTabs();
+    }
+
+    // ========================================================================
+    //                          PHẦN XỬ LÝ DỮ LIỆU (DATABASE)
+    // ========================================================================
+    
     private void loadDataFromDB() {
         try (Connection conn = DatabaseHandler.connect();
              Statement stmt = conn.createStatement()) {
             
-            
+            // --- 1. Load Phòng ban ---
             ResultSet rsCheckPB = stmt.executeQuery("SELECT COUNT(*) FROM phong_ban");
             rsCheckPB.next();
             if (rsCheckPB.getInt(1) == 0) {
-                System.out.println("⚠️ Bảng Phòng ban trống. Đang nạp dữ liệu mẫu...");
-                stmt.execute("INSERT INTO phong_ban VALUES ('KT', 'Kỹ thuật'), ('KD', 'Kinh doanh'), ('NS', 'Nhân sự')");
+                stmt.execute("INSERT INTO phong_ban VALUES ('KT', 'Kỹ thuật')");
+                stmt.execute("INSERT INTO phong_ban VALUES ('KD', 'Kinh doanh')");
+                stmt.execute("INSERT INTO phong_ban VALUES ('NS', 'Nhân sự')");
             }
             ResultSet rsPB = stmt.executeQuery("SELECT * FROM phong_ban");
             while (rsPB.next()) {
                 danhSachPB.add(new PhongBan(rsPB.getString("ma_pb"), rsPB.getString("ten_pb")));
             }
 
-            
+            // --- 2. Load Dự án ---
             ResultSet rsCheckDA = stmt.executeQuery("SELECT COUNT(*) FROM du_an");
             rsCheckDA.next();
             if (rsCheckDA.getInt(1) == 0) {
-                System.out.println("⚠️ Bảng Dự án trống. Đang nạp dữ liệu mẫu...");
-                stmt.execute("INSERT INTO du_an (ma_da, ten_da, do_phuc_tap) VALUES " +
-                        "('DA01', 'Website Thương mại điện tử', 3)," +
-                        "('DA02', 'Hệ thống CRM nội bộ', 2)");
+                stmt.execute("INSERT INTO du_an (ma_da, ten_da, do_phuc_tap) VALUES ('DA01', 'Website TMĐT', 3)");
+                stmt.execute("INSERT INTO du_an (ma_da, ten_da, do_phuc_tap) VALUES ('DA02', 'Hệ thống CRM nội bộ', 2)");
             }
             ResultSet rsDA = stmt.executeQuery("SELECT * FROM du_an");
             while (rsDA.next()) {
                 danhSachDuAn.add(new DuAn(rsDA.getString("ma_da"), rsDA.getString("ten_da"), rsDA.getInt("do_phuc_tap")));
             }
 
-           
+            // --- 3. Load Nhân viên ---
             ResultSet rsCheckNV = stmt.executeQuery("SELECT COUNT(*) FROM nhan_vien");
             rsCheckNV.next();
             if (rsCheckNV.getInt(1) == 0) {
-                System.out.println("⚠️ Bảng Nhân viên trống. Đang nạp dữ liệu mẫu...");
-                stmt.execute("INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
-                        "('NV001', 'Nguyễn Văn A', 'Kỹ thuật', '0900111222', 'a.nguyen@example.com', '01/01/1990', '123456789', 5)," +
-                        "('NV002', 'Trần Thị B', 'Kinh doanh', '0900333444', 'b.tran@example.com', '02/02/1992', '987654321', 3)," +
-                        "('NV003', 'Lê Văn C', 'Nhân sự', '0900555666', 'c.le@example.com', '03/03/1995', '111222333', 1)," +
-                        "('NV004', 'Phạm Văn D', 'Kỹ thuật', '0900777888', 'd.pham@example.com', '04/04/1998', '444555666', 2)");
+                String sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
+                        "('NV001', 'Nguyễn Văn A', 'Kỹ thuật', '0900111222', 'a.nguyen@example.com', '01/01/1990', '123456789', 5)";
+                        stmt.execute(sqlInsertNV);
+                        sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
+                        "('NV002', 'Nguyễn Văn B', 'Nhân sự', '0900111222', 'b.nguyen@example.com', '01/01/1990', '123456789', 3)";
+                        stmt.execute(sqlInsertNV);
+                        sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
+                        "('NV003', 'Trần Thị C', 'Kinh doanh', '0900333444', 'c.tran@example.com', '01/01/1992', '987654321', 2)";
+                stmt.execute(sqlInsertNV);
             }
             ResultSet rsNV = stmt.executeQuery("SELECT * FROM nhan_vien");
             while (rsNV.next()) {
@@ -141,36 +205,39 @@ public class QuanLyNhanVienGUI extends JFrame {
                 danhSachNV.add(nv);
             }
 
-            
+            // --- 4. Load Phân công Dự án ---
             ResultSet rsPC = stmt.executeQuery("SELECT * FROM phan_cong");
             while (rsPC.next()) {
                 String maDA = rsPC.getString("ma_da");
                 String maNV = rsPC.getString("ma_nv");
 
-                // Tìm đối tượng DuAn và NhanVien tương ứng trong List
-                DuAn da = danhSachDuAn.stream()
-                        .filter(d -> d.getMaDuAn().equals(maDA))
-                        .findFirst().orElse(null);
+                DuAn da = null;
+                for (DuAn d : danhSachDuAn) {
+                    if (d.getMaDuAn().equals(maDA)) { da = d; break; }
+                }
                 
-                NhanVien nv = danhSachNV.stream()
-                        .filter(n -> n.getMaNhanVien().equals(maNV))
-                        .findFirst().orElse(null);
+                NhanVien nv = null;
+                for (NhanVien n : danhSachNV) {
+                    if (n.getMaNhanVien().equals(maNV)) { nv = n; break; }
+                }
 
-                
                 if (da != null && nv != null) {
                     da.addThanhVien(nv);
                 }
             }
 
-            
+            // --- 5. Load Nhật ký (Log) ---
             ResultSet rsLog = stmt.executeQuery("SELECT * FROM nhat_ky ORDER BY id DESC LIMIT 50");
             while (rsLog.next()) {
                  danhSachLog.add(new LogEntry(
+                     rsLog.getString("thoi_gian"),
                      rsLog.getString("nguoi_dung"), 
                      rsLog.getString("hanh_dong"), 
                      rsLog.getString("chi_tiet")
                  ));
             }
+
+            System.out.println("✅ Đã nạp dữ liệu thành công lên RAM.");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -201,14 +268,18 @@ public class QuanLyNhanVienGUI extends JFrame {
     
     public List<LogEntry> getDanhSachLog() { return danhSachLog; }
 
+    // ========================================================================
+    //                          PHẦN GIAO DIỆN (UI)
+    // ========================================================================
+
     private JPanel createHeaderPanel() {
         JPanel header = new JPanel(new BorderLayout());
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.GRAY));
         header.setBackground(new Color(230, 240, 255));
         
-        JLabel lblTitle = new JLabel("  HỆ THỐNG QUẢN LÝ NHÂN SỰ");
-        lblTitle.setFont(new Font("Arial", Font.BOLD, 16));
-        lblTitle.setForeground(Color.BLUE);
+        JLabel lblTitle = new JLabel("  HỆ THỐNG QUẢN TRỊ DOANH NGHIỆP (ERP)");
+        lblTitle.setFont(new Font("Arial", Font.BOLD, 18));
+        lblTitle.setForeground(new Color(0, 51, 153));
         header.add(lblTitle, BorderLayout.WEST);
 
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -226,22 +297,28 @@ public class QuanLyNhanVienGUI extends JFrame {
         btnTaoTaiKhoan.setBackground(new Color(0, 153, 76));
         btnTaoTaiKhoan.setForeground(Color.WHITE);
         btnTaoTaiKhoan.setFocusable(false);
-        btnTaoTaiKhoan.addActionListener(e -> hienThiManHinhTaoTaiKhoan());
         
-        JButton btnDoiMK = new JButton("Đổi mật khẩu");
+        btnTaoTaiKhoan.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                hienThiManHinhTaoTaiKhoan();
+            }
+        });
+        
         JButton btnDangXuat = new JButton("Đăng xuất");
-        
-        btnDoiMK.setFocusable(false);
         btnDangXuat.setFocusable(false);
         btnDangXuat.setBackground(new Color(255, 200, 200));
 
-        btnDoiMK.addActionListener(e -> hienThiDoiMatKhau());
-        btnDangXuat.addActionListener(e -> xuLyDangXuat());
+        btnDangXuat.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                xuLyDangXuat();
+            }
+        });
 
         rightPanel.add(lblThoiGianPhien);
         rightPanel.add(lblXinChao);
         rightPanel.add(btnTaoTaiKhoan); 
-        rightPanel.add(btnDoiMK);
         rightPanel.add(btnDangXuat);
         
         header.add(rightPanel, BorderLayout.EAST);
@@ -252,13 +329,16 @@ public class QuanLyNhanVienGUI extends JFrame {
         startSessionTime = System.currentTimeMillis();
         if (sessionTimer != null) sessionTimer.stop();
 
-        sessionTimer = new Timer(1000, e -> {
-            long now = System.currentTimeMillis();
-            long duration = now - startSessionTime;
-            long seconds = (duration / 1000) % 60;
-            long minutes = (duration / (1000 * 60)) % 60;
-            long hours = (duration / (1000 * 60 * 60));
-            lblThoiGianPhien.setText(String.format("Phiên: %02d:%02d:%02d  |  ", hours, minutes, seconds));
+        sessionTimer = new Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                long now = System.currentTimeMillis();
+                long duration = now - startSessionTime;
+                long seconds = (duration / 1000) % 60;
+                long minutes = (duration / (1000 * 60)) % 60;
+                long hours = (duration / (1000 * 60 * 60));
+                lblThoiGianPhien.setText(String.format("Phiên: %02d:%02d:%02d  |  ", hours, minutes, seconds));
+            }
         });
         sessionTimer.start();
     }
@@ -269,8 +349,12 @@ public class QuanLyNhanVienGUI extends JFrame {
         loginDialog.setLayout(new GridBagLayout());
         loginDialog.setLocationRelativeTo(null);
         loginDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        
         loginDialog.addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent e) { System.exit(0); }
+            @Override
+            public void windowClosing(WindowEvent e) {
+                System.exit(0); 
+            }
         });
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -285,80 +369,63 @@ public class QuanLyNhanVienGUI extends JFrame {
         JPanel btnPanel = new JPanel();
         JButton btnLogin = new JButton("Đăng nhập");
         JButton btnExit = new JButton("Thoát");
-        loginDialog.getRootPane().setDefaultButton(btnLogin);
+        loginDialog.getRootPane().setDefaultButton(btnLogin); 
 
-        btnLogin.addActionListener(e -> {
-            String user = txtUser.getText();
-            String pass = new String(txtPass.getPassword());
+        btnLogin.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String user = txtUser.getText();
+                String pass = new String(txtPass.getPassword());
 
-            if (quanLyTaiKhoan.kiemTraDangNhap(user, pass)) {
-                currentUser = user; 
-                lblXinChao.setText("Xin chào, " + currentUser + " | "); 
-                if (currentUser.equals("admin")) {
-                    btnTaoTaiKhoan.setVisible(true);
-                    if (tabbedPane.indexOfComponent(tabNhatKy) == -1) {
-                        tabbedPane.addTab("Nhật ký hệ thống", null, tabNhatKy, "Xem lịch sử hoạt động");
+                // [CẬP NHẬT GIAI ĐOẠN 4] Lấy Role thay vì chỉ True/False
+                String role = quanLyTaiKhoan.dangNhap(user, pass);
+
+                if (role != null) {
+                    currentUser = user; 
+                    lblXinChao.setText("Xin chào, " + currentUser + " (" + role + ") | "); 
+                    
+                    if (role.equals("admin")) {
+                        btnTaoTaiKhoan.setVisible(true);
+                    } else {
+                        btnTaoTaiKhoan.setVisible(false);
                     }
+                    
+                    // Gọi hàm setup lại các Tab theo quyền
+                    setupTabsByRole(role);
+                    
+                    ghiNhatKy("Đăng nhập", "Role: " + role);
+                    batDauDemGioLamViec(); 
+                    loginDialog.dispose(); 
                 } else {
-                    btnTaoTaiKhoan.setVisible(false);
-                    int idx = tabbedPane.indexOfComponent(tabNhatKy);
-                    if (idx != -1) tabbedPane.remove(idx);
+                    JOptionPane.showMessageDialog(loginDialog, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
-                ghiNhatKy("Đăng nhập", "Đăng nhập thành công");
-                batDauDemGioLamViec(); 
-                loginDialog.dispose(); 
-            } else {
-                JOptionPane.showMessageDialog(loginDialog, "Sai tài khoản hoặc mật khẩu!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         });
 
         btnExit.addActionListener(e -> System.exit(0));
+        
         btnPanel.add(btnLogin);
         btnPanel.add(btnExit);
         gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
         loginDialog.add(btnPanel, gbc);
+        
         loginDialog.setVisible(true);
     }
 
     private void hienThiManHinhTaoTaiKhoan() {
-        JDialog registerDialog = new JDialog(this, "Tạo tài khoản mới (Admin Only)", true);
-        registerDialog.setSize(400, 250);
-        registerDialog.setLayout(new GridBagLayout());
-        registerDialog.setLocationRelativeTo(this);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5); gbc.fill = GridBagConstraints.HORIZONTAL;
+        String newUser = JOptionPane.showInputDialog(this, "Nhập tên đăng nhập mới:");
+        if (newUser == null || newUser.trim().isEmpty()) return;
+        
+        String newPass = JOptionPane.showInputDialog(this, "Nhập mật khẩu:");
+        if (newPass == null || newPass.trim().isEmpty()) return;
 
-        JTextField txtNewUser = new JTextField(15);
-        JPasswordField txtNewPass = new JPasswordField(15);
-        JPasswordField txtConfirmPass = new JPasswordField(15);
-
-        gbc.gridx = 0; gbc.gridy = 0; registerDialog.add(new JLabel("Tên đăng nhập mới:"), gbc);
-        gbc.gridx = 1; registerDialog.add(txtNewUser, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; registerDialog.add(new JLabel("Mật khẩu:"), gbc);
-        gbc.gridx = 1; registerDialog.add(txtNewPass, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; registerDialog.add(new JLabel("Nhập lại Mật khẩu:"), gbc);
-        gbc.gridx = 1; registerDialog.add(txtConfirmPass, gbc);
-
-        JButton btnTaoTK = new JButton("Tạo tài khoản");
-        btnTaoTK.addActionListener(e -> {
-            String user = txtNewUser.getText().trim();
-            String pass = new String(txtNewPass.getPassword());
-            String confirm = new String(txtConfirmPass.getPassword());
-
-            if (user.isEmpty() || pass.isEmpty()) { JOptionPane.showMessageDialog(registerDialog, "Thiếu thông tin!", "Lỗi", JOptionPane.ERROR_MESSAGE); return; }
-            if (!pass.equals(confirm)) { JOptionPane.showMessageDialog(registerDialog, "Mật khẩu không khớp!", "Lỗi", JOptionPane.ERROR_MESSAGE); return; }
-
-            boolean thanhCong = quanLyTaiKhoan.themTaiKhoan(user, pass);
-            if (thanhCong) {
-                JOptionPane.showMessageDialog(registerDialog, "Tạo tài khoản thành công!");
-                ghiNhatKy("Tạo tài khoản", "Đã tạo user mới: " + user);
-                registerDialog.dispose();
-            } else {
-                JOptionPane.showMessageDialog(registerDialog, "Tên tài khoản đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; registerDialog.add(btnTaoTK, gbc);
-        registerDialog.setVisible(true);
+        boolean thanhCong = quanLyTaiKhoan.themTaiKhoan(newUser, newPass);
+        if (thanhCong) {
+            JOptionPane.showMessageDialog(this, "Tạo tài khoản thành công!");
+            ghiNhatKy("Tạo tài khoản", "Đã tạo user mới: " + newUser);
+        } else {
+            JOptionPane.showMessageDialog(this, "Tên tài khoản đã tồn tại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void xuLyDangXuat() {
@@ -373,57 +440,24 @@ public class QuanLyNhanVienGUI extends JFrame {
             this.setVisible(true); 
         }
     }
-
-    private void hienThiDoiMatKhau() {
-        JDialog passDialog = new JDialog(this, "Đổi mật khẩu", true);
-        passDialog.setSize(400, 250);
-        passDialog.setLayout(new GridBagLayout());
-        passDialog.setLocationRelativeTo(this);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5); gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        JPasswordField txtOldPass = new JPasswordField(15);
-        JPasswordField txtNewPass = new JPasswordField(15);
-        JPasswordField txtConfirmPass = new JPasswordField(15);
-
-        gbc.gridx = 0; gbc.gridy = 0; passDialog.add(new JLabel("Mật khẩu cũ:"), gbc);
-        gbc.gridx = 1; passDialog.add(txtOldPass, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; passDialog.add(new JLabel("Mật khẩu mới:"), gbc);
-        gbc.gridx = 1; passDialog.add(txtNewPass, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; passDialog.add(new JLabel("Xác nhận MK mới:"), gbc);
-        gbc.gridx = 1; passDialog.add(txtConfirmPass, gbc);
-
-        JButton btnSave = new JButton("Lưu thay đổi");
-        btnSave.addActionListener(e -> {
-            String oldP = new String(txtOldPass.getPassword());
-            String newP = new String(txtNewPass.getPassword());
-            String confirmP = new String(txtConfirmPass.getPassword());
-
-            if (newP.isEmpty()) { JOptionPane.showMessageDialog(passDialog, "Mật khẩu trống!", "Lỗi", JOptionPane.ERROR_MESSAGE); return; }
-            if (!newP.equals(confirmP)) { JOptionPane.showMessageDialog(passDialog, "Không khớp!", "Lỗi", JOptionPane.ERROR_MESSAGE); return; }
-
-            boolean ketQua = quanLyTaiKhoan.doiMatKhau(currentUser, oldP, newP);
-            if (ketQua) {
-                JOptionPane.showMessageDialog(passDialog, "Đổi mật khẩu thành công!");
-                ghiNhatKy("Đổi mật khẩu", "User đã tự đổi mật khẩu");
-                passDialog.dispose();
-            } else {
-                JOptionPane.showMessageDialog(passDialog, "Mật khẩu cũ sai!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; passDialog.add(btnSave, gbc);
-        passDialog.setVisible(true);
-    }
     
     public void refreshAllTabs() {
-        refreshTableNV();
-        updatePhongBanComboBox();
-        locNhanVienTheoPhongBan();
-        updateDuAnComboBox();
-        if (tabDuAn != null) tabDuAn.refreshTableDuAn(); 
-        refreshLuongTable();
-        refreshBaoCaoTab();
-        if (tabNhatKy != null) tabNhatKy.refreshLogTable();
+        if (tabDashboard != null) tabDashboard.refreshDashboard(); // [MỚI]
+        if (tabNhanVien != null) tabNhanVien.refreshTableNV();
+        if (tabNhanVien != null) tabNhanVien.updatePhongBanComboBox();
+        
+        if (tabPhongBan != null) {
+            tabPhongBan.updatePhongBanComboBox();
+            tabPhongBan.locNhanVienTheoPhongBan();
+        }
+        
+        if (tabDuAn != null) {
+            tabDuAn.refreshTableDuAn(); 
+            tabDuAn.updateDuAnComboBox();
+        }
+        
+        if (tabLuong != null) tabLuong.refreshLuongTable();
+        if (tabBaoCao != null) tabBaoCao.refreshBaoCao();
         if (tabNhatKy != null) tabNhatKy.refreshLogTable();
     }
 
@@ -438,10 +472,13 @@ public class QuanLyNhanVienGUI extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            QuanLyNhanVienGUI app = new QuanLyNhanVienGUI();
-            app.hienThiManHinhDangNhap(); 
-            app.setVisible(true);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                QuanLyNhanVienGUI app = new QuanLyNhanVienGUI();
+                app.hienThiManHinhDangNhap(); 
+                app.setVisible(true);
+            }
         });
     }
 }

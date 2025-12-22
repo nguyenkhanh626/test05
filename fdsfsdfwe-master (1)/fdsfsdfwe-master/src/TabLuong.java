@@ -1,12 +1,6 @@
 import javax.swing.*;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
 import java.util.List;
 
@@ -15,10 +9,9 @@ public class TabLuong extends JPanel {
     private QuanLyNhanVienGUI parent;
     private List<NhanVien> danhSachNV;
     private NumberFormat currencyFormatter;
-
     private DefaultTableModel modelLuong;
     private JTable tableLuong;
-    
+
     public TabLuong(QuanLyNhanVienGUI parent) {
         this.parent = parent;
         this.danhSachNV = parent.danhSachNV;
@@ -28,26 +21,22 @@ public class TabLuong extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        
-        JButton btnRefreshLuong = new JButton("Làm mới Bảng lương");
+        JButton btnRefreshLuong = new JButton("Tính toán Lương");
         btnRefreshLuong.addActionListener(e -> refreshLuongTable());
         
-        JButton btnXuatExcel = new JButton("Xuất Bảng Lương (Excel)");
-        btnXuatExcel.setBackground(new Color(0, 153, 76));
-        btnXuatExcel.setForeground(Color.WHITE);
-        btnXuatExcel.setFocusPainted(false);
-        btnXuatExcel.addActionListener(e -> xuatFileExcel());
+        JButton btnInPhieu = new JButton("In Phiếu Lương (Chi tiết)");
+        btnInPhieu.setBackground(new Color(0, 102, 204));
+        btnInPhieu.setForeground(Color.WHITE);
+        btnInPhieu.addActionListener(e -> inPhieuLuong());
 
         topPanel.add(btnRefreshLuong);
-        topPanel.add(btnXuatExcel);
-        
+        topPanel.add(btnInPhieu);
         add(topPanel, BorderLayout.NORTH);
 
+        // Thêm cột BHXH và Thuế
         String[] columnNames = {
-            "Mã NV", "Họ Tên", "Lương (CB+TN)", 
-            "Điểm thưởng DA", "Thưởng Dự án", 
-            "Thưởng Chuyên cần", "Điểm Vi phạm", 
-            "Tiền Phạt", "Lương Thực nhận"
+            "Mã NV", "Họ Tên", "Tổng Thu Nhập", 
+            "Khấu trừ BHXH (8%)", "Thuế TNCN", "Phạt", "THỰC LĨNH"
         };
         modelLuong = new DefaultTableModel(columnNames, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
@@ -58,102 +47,65 @@ public class TabLuong extends JPanel {
 
     public void refreshLuongTable() {
         if (modelLuong == null) return;
-
         modelLuong.setRowCount(0);
         
-        final long LUONG_CO_BAN = 15_000_000;
-        final long THAM_NIEN_BONUS = 5_000_000;
+        final long LUONG_CO_BAN = 10_000_000; // Giả định lương cứng mới
         final long PHAT_VI_PHAM = 500_000;
-        final long THUONG_DU_AN_MULTI = 2_000_000;
-        final long THUONG_CHUYEN_CAN = 1_000_000;
 
         for (NhanVien nv : danhSachNV) {
-            int soLanTangLuong = nv.getThamNien() / 3;
-            long phuCapThamNien = (long) soLanTangLuong * THAM_NIEN_BONUS;
-            long luongTruocTru = LUONG_CO_BAN + phuCapThamNien;
+            // 1. Thu nhập
+            long phuCapThamNien = nv.getThamNien() * 1_000_000L;
+            long thuongDA = nv.getDiemThuongDuAn() * 2_000_000L;
+            long tongThuNhap = LUONG_CO_BAN + phuCapThamNien + thuongDA;
 
-            int diemThuongDA = nv.getDiemThuongDuAn();
-            long thuongDuAn = (long) diemThuongDA * THUONG_DU_AN_MULTI;
+            // 2. Khấu trừ
+            long phat = nv.getDiemViPham() * PHAT_VI_PHAM;
+            long bhxh = (long) (tongThuNhap * 0.08); // 8% BHXH
+            
+            // 3. Tính Thuế TNCN (Giả định >11tr mới đóng thuế 10% phần dư)
+            long thuNhapChiuThue = tongThuNhap - bhxh - 11_000_000;
+            long thueTNCN = 0;
+            if (thuNhapChiuThue > 0) {
+                thueTNCN = (long) (thuNhapChiuThue * 0.1);
+            }
 
-            long thuongChuyenCan = (nv.getDiemViPham() == 0) ? THUONG_CHUYEN_CAN : 0;
-            int diemViPham = nv.getDiemViPham();
-            long tienPhat = (long) diemViPham * PHAT_VI_PHAM;
-
-            long luongCuoiCung = luongTruocTru + thuongDuAn + thuongChuyenCan - tienPhat;
+            long thucLinh = tongThuNhap - bhxh - thueTNCN - phat;
 
             modelLuong.addRow(new Object[]{
-                nv.getMaNhanVien(),
-                nv.getHoTen(),
-                currencyFormatter.format(luongTruocTru),
-                diemThuongDA,
-                currencyFormatter.format(thuongDuAn),
-                currencyFormatter.format(thuongChuyenCan),
-                diemViPham,
-                currencyFormatter.format(tienPhat),
-                currencyFormatter.format(luongCuoiCung)
+                nv.getMaNhanVien(), nv.getHoTen(),
+                currencyFormatter.format(tongThuNhap),
+                currencyFormatter.format(bhxh),
+                currencyFormatter.format(thueTNCN),
+                currencyFormatter.format(phat),
+                currencyFormatter.format(thucLinh)
             });
         }
     }
 
-    private void xuatFileExcel() {
-        if (tableLuong.getRowCount() == 0) {
-            JOptionPane.showMessageDialog(this, "Không có dữ liệu để xuất!", "Thông báo", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Chọn nơi lưu Bảng lương");
-        fileChooser.setFileFilter(new FileNameExtensionFilter("Excel CSV (*.csv)", "csv"));
+    private void inPhieuLuong() {
+        int r = tableLuong.getSelectedRow();
+        if (r == -1) { JOptionPane.showMessageDialog(this, "Chọn nhân viên cần in phiếu!"); return; }
         
-        int userSelection = fileChooser.showSaveDialog(this);
+        String maNV = modelLuong.getValueAt(r, 0).toString();
+        String hoTen = modelLuong.getValueAt(r, 1).toString();
+        String thucLinh = modelLuong.getValueAt(r, 6).toString();
+        
+        // Tạo nội dung phiếu lương
+        StringBuilder sb = new StringBuilder();
+        sb.append("========== PHIẾU LƯƠNG THÁNG ==========\n");
+        sb.append("Mã NV: ").append(maNV).append("\n");
+        sb.append("Họ tên: ").append(hoTen).append("\n");
+        sb.append("---------------------------------------\n");
+        sb.append("Tổng thu nhập:  ").append(modelLuong.getValueAt(r, 2)).append("\n");
+        sb.append("(-) BHXH (8%):  ").append(modelLuong.getValueAt(r, 3)).append("\n");
+        sb.append("(-) Thuế TNCN:  ").append(modelLuong.getValueAt(r, 4)).append("\n");
+        sb.append("(-) Vi phạm:    ").append(modelLuong.getValueAt(r, 5)).append("\n");
+        sb.append("---------------------------------------\n");
+        sb.append("THỰC LĨNH:      ").append(thucLinh).append("\n");
+        sb.append("=======================================\n");
 
-        if (userSelection == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
-            
-            if (!fileToSave.getAbsolutePath().endsWith(".csv")) {
-                fileToSave = new File(fileToSave.getAbsolutePath() + ".csv");
-            }
-
-            try (BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(new FileOutputStream(fileToSave), StandardCharsets.UTF_8))) {
-                
-                writer.write('\uFEFF'); 
-
-                for (int i = 0; i < modelLuong.getColumnCount(); i++) {
-                    writer.write(modelLuong.getColumnName(i));
-                    if (i < modelLuong.getColumnCount() - 1) {
-                        writer.write(",");
-                    }
-                }
-                writer.newLine();
-
-                for (int row = 0; row < modelLuong.getRowCount(); row++) {
-                    for (int col = 0; col < modelLuong.getColumnCount(); col++) {
-                        Object value = modelLuong.getValueAt(row, col);
-                        String data = (value != null) ? value.toString() : "";
-                        
-                        data = data.replace(",", "."); 
-                        
-                        writer.write(data);
-                        if (col < modelLuong.getColumnCount() - 1) {
-                            writer.write(",");
-                        }
-                    }
-                    writer.newLine();
-                }
-
-                JOptionPane.showMessageDialog(this, "Xuất file thành công!\nĐường dẫn: " + fileToSave.getAbsolutePath());
-                
-                try {
-                    Desktop.getDesktop().open(fileToSave);
-                } catch (Exception ex) {
-                    // do nothing
-                }
-
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Lỗi khi lưu file: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-                ex.printStackTrace();
-            }
-        }
+        JTextArea textArea = new JTextArea(sb.toString());
+        textArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        JOptionPane.showMessageDialog(this, new JScrollPane(textArea), "Phiếu Lương Chi Tiết", JOptionPane.INFORMATION_MESSAGE);
     }
 }
