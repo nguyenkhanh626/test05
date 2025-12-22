@@ -26,7 +26,8 @@ public class QuanLyNhanVienGUI extends JFrame {
     private TabNhanVien tabNhanVien;
     private TabPhongBan tabPhongBan;
     private TabDuAn tabDuAn;
-    private TabHieuSuat tabHieuSuat; 
+    private TabHieuSuat tabHieuSuat;
+    private TabLichLamViec tabLichLamViec; // [MỚI] Thêm tab Lịch làm việc
     private TabLuong tabLuong;
     private TabBaoCao tabBaoCao;
     private TabNhatKy tabNhatKy;
@@ -58,7 +59,7 @@ public class QuanLyNhanVienGUI extends JFrame {
         
         // 2. Thiết lập cửa sổ chính
         setTitle("Hệ thống Quản trị Doanh nghiệp Tổng thể (ERP) - Full Version");
-        setSize(1350, 800); 
+        setSize(1500,800); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); 
         
@@ -89,7 +90,8 @@ public class QuanLyNhanVienGUI extends JFrame {
         tabPhongBan = new TabPhongBan(this);
         tabDuAn = new TabDuAn(this);
         tabLuong = new TabLuong(this);
-        tabHieuSuat = new TabHieuSuat(this); 
+        tabHieuSuat = new TabHieuSuat(this);
+        tabLichLamViec = new TabLichLamViec(this); // [MỚI] Khởi tạo tab Lịch
         tabTuyenDung = new TabTuyenDung(this);
         tabDaoTao = new TabDaoTao(this);
         tabTaiSan = new TabTaiSan(this);
@@ -120,6 +122,7 @@ public class QuanLyNhanVienGUI extends JFrame {
         if (role.equals("admin")) {
             tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "Quản lý hồ sơ nhân viên");
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "Xem nhân viên theo phòng ban");
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca"); // [MỚI]
             tabbedPane.addTab("Chấm công & Nghỉ phép", null, tabHieuSuat, "Quản lý thời gian làm việc & Vi phạm");
             tabbedPane.addTab("Quản lý Lương", null, tabLuong, "Tính lương & Xuất phiếu lương");
             tabbedPane.addTab("Quản lý Dự án", null, tabDuAn, "Phân công dự án");
@@ -135,6 +138,7 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "");
             tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "");
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "");
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca"); // [MỚI]
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "");
             tabbedPane.addTab("Gửi Email", null, tabEmail, ""); // [MỚI]
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "");
@@ -149,6 +153,7 @@ public class QuanLyNhanVienGUI extends JFrame {
         }
         else {
             // User thường
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xem lịch làm việc cá nhân"); // [MỚI] - Cho phép nhân viên xem lịch
             tabbedPane.addTab("Thông tin cá nhân", null, new JPanel(), "Đang cập nhật...");
             tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         }
@@ -156,7 +161,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     }
 
     // ========================================================================
-    //                          PHẦN XỬ LÝ DỮ LIỆU (DATABASE)
+    //                              PHẦN XỬ LÝ DỮ LIỆU (DATABASE)
     // ========================================================================
     
     private void loadDataFromDB() {
@@ -171,10 +176,12 @@ public class QuanLyNhanVienGUI extends JFrame {
                 stmt.execute("INSERT INTO phong_ban VALUES ('KD', 'Kinh doanh')");
                 stmt.execute("INSERT INTO phong_ban VALUES ('NS', 'Nhân sự')");
             }
+            rsCheckPB.close();
             ResultSet rsPB = stmt.executeQuery("SELECT * FROM phong_ban");
             while (rsPB.next()) {
                 danhSachPB.add(new PhongBan(rsPB.getString("ma_pb"), rsPB.getString("ten_pb")));
             }
+            rsPB.close();
 
             // --- 2. Load Dự án ---
             ResultSet rsCheckDA = stmt.executeQuery("SELECT COUNT(*) FROM du_an");
@@ -191,16 +198,12 @@ public class QuanLyNhanVienGUI extends JFrame {
             // --- 3. Load Nhân viên ---
             ResultSet rsCheckNV = stmt.executeQuery("SELECT COUNT(*) FROM nhan_vien");
             rsCheckNV.next();
-            if (rsCheckNV.getInt(1) == 0) {
-                String sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
-                        "('NV001', 'Nguyễn Văn A', 'Kỹ thuật', '0900111222', 'a.nguyen@example.com', '01/01/1990', '123456789', 5)";
-                        stmt.execute(sqlInsertNV);
-                        sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
-                        "('NV002', 'Nguyễn Văn B', 'Nhân sự', '0900111222', 'b.nguyen@example.com', '01/01/1990', '123456789', 3)";
-                        stmt.execute(sqlInsertNV);
-                        sqlInsertNV = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien) VALUES " +
-                        "('NV003', 'Trần Thị C', 'Kinh doanh', '0900333444', 'c.tran@example.com', '01/01/1992', '987654321', 2)";
-                stmt.execute(sqlInsertNV);
+            int soLuongNV = rsCheckNV.getInt(1);
+            rsCheckNV.close(); // <--- QUAN TRỌNG: Phải đóng cái này lại trước khi thêm mới
+            if (soLuongNV == 0) {
+                //System.out.println("⚡ Database trống, đang khởi tạo nhân viên mẫu...");
+                // Gọi hàm bên DataSeeder và truyền kết nối hiện tại (conn) vào
+                DataSeeder.themNhanVienMau(conn);
             }
             ResultSet rsNV = stmt.executeQuery("SELECT * FROM nhan_vien");
             while (rsNV.next()) {
@@ -283,7 +286,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     public List<LogEntry> getDanhSachLog() { return danhSachLog; }
 
     // ========================================================================
-    //                          PHẦN GIAO DIỆN (UI)
+    //                              PHẦN GIAO DIỆN (UI)
     // ========================================================================
 
     private JPanel createHeaderPanel() {
@@ -513,6 +516,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     }
 
     public static void main(String[] args) {
+
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {

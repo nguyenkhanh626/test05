@@ -1,8 +1,10 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.ResultSet;
+
+import javax.xml.crypto.Data;
 
 public class DatabaseHandler {
     
@@ -32,12 +34,11 @@ public class DatabaseHandler {
                      + " diem_vi_pham INTEGER DEFAULT 0, "
                      + " diem_thuong_da INTEGER DEFAULT 0)";
         
-        // [CẬP NHẬT GIAI ĐOẠN 4] Thêm cột role vào bảng tài khoản
         String sqlTK = "CREATE TABLE IF NOT EXISTS tai_khoan ("
                      + " username TEXT PRIMARY KEY, "
                      + " password_hash TEXT, "
                      + " salt TEXT, "
-                     + " role TEXT DEFAULT 'user')"; // Mặc định là user thường
+                     + " role TEXT DEFAULT 'user')";
 
         String sqlLog = "CREATE TABLE IF NOT EXISTS nhat_ky ("
                       + " id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -117,10 +118,20 @@ public class DatabaseHandler {
                          + " tinh_trang TEXT, "
                          + " ma_nv_su_dung TEXT)";
 
+        // --- 4. [NEW] BẢNG LỊCH LÀM VIỆC (QUẢN LÝ PHÂN CA) ---
+        // Lưu trữ kế hoạch phân ca cho từng ngày
+        String sqlLichLamViec = "CREATE TABLE IF NOT EXISTS lich_lam_viec ("
+                              + " id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                              + " ma_nv TEXT, "
+                              + " ngay TEXT, " // Định dạng dd/MM/yyyy
+                              + " ma_ca INTEGER, "
+                              + " loai_phan_cong TEXT DEFAULT 'ChinhThuc', " // ChinhThuc, TangCa
+                              + " ghi_chu TEXT, "
+                              + " CONSTRAINT uq_lich UNIQUE(ma_nv, ngay, ma_ca))";
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
             
-            // Thực thi tạo từng bảng một cách tường minh
             stmt.execute(sqlPB);
             stmt.execute(sqlNV);
             stmt.execute(sqlTK);
@@ -136,31 +147,31 @@ public class DatabaseHandler {
             stmt.execute(sqlHocVien);
             stmt.execute(sqlTaiSan);
             
-            // --- MIGRATION (Nâng cấp DB cũ nếu cần) ---
+            // [NEW] Tạo bảng lịch làm việc
+            stmt.execute(sqlLichLamViec);
+
+            // --- MIGRATION & DATA SEEDING ---
             try {
-                // Cố gắng thêm cột role vào bảng tai_khoan (nếu code cũ chưa có)
                 stmt.execute("ALTER TABLE tai_khoan ADD COLUMN role TEXT DEFAULT 'user'");
-                System.out.println("⚠️ Đã nâng cấp bảng tai_khoan (Thêm cột role)");
-            } catch (SQLException e) {
-                // Nếu cột đã tồn tại thì bỏ qua lỗi này
-            }
+            } catch (SQLException e) { /* Cột đã tồn tại */ }
             
-            // Đảm bảo admin luôn có quyền admin
             stmt.executeUpdate("UPDATE tai_khoan SET role = 'admin' WHERE username = 'admin'");
 
-            // Nạp dữ liệu mẫu Ca làm việc (nếu chưa có)
+            // Dữ liệu mẫu Ca làm việc
             ResultSet rsCa = stmt.executeQuery("SELECT COUNT(*) FROM ca_lam_viec");
             rsCa.next();
             if (rsCa.getInt(1) == 0) {
                 stmt.execute("INSERT INTO ca_lam_viec (ten_ca, gio_bat_dau, gio_ket_thuc) VALUES ('Ca Sáng', '08:00', '12:00')");
                 stmt.execute("INSERT INTO ca_lam_viec (ten_ca, gio_bat_dau, gio_ket_thuc) VALUES ('Ca Chiều', '13:00', '17:00')");
-                stmt.execute("INSERT INTO ca_lam_viec (ten_ca, gio_bat_dau, gio_ket_thuc) VALUES ('Ca Tối', '18:00', '22:00')");
             }
 
-            System.out.println("Database đã được khởi tạo/cập nhật đầy đủ");
+            System.out.println("Database đã được khởi tạo/cập nhật đầy đủ (bao gồm bảng Lịch Làm Việc).");
             
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
+        
+
     }
 }

@@ -17,6 +17,11 @@ public class TabHieuSuat extends JPanel {
     private DefaultTableModel modelChamCong;
     private JTable tableChamCong;
     private JLabel lblStatusCheckIn;
+    
+    // Nút bấm cần control trạng thái
+    private JButton btnCheckIn;
+    private JButton btnCheckOut;
+    private JButton btnRefresh;
 
     // Components cho phần Nghỉ phép
     private JTextField txtMaNVNghi;
@@ -25,24 +30,24 @@ public class TabHieuSuat extends JPanel {
     private DefaultTableModel modelNghiPhep;
     private JTable tableNghiPhep;
 
-    // Components cho phần Vi phạm (Khôi phục logic cũ)
+    // Components cho phần Vi phạm
     private JTextField txtMaNVViPham;
     private JRadioButton radioDiMuon;
-    private JRadioButton radioKhongPhep; // Tên cũ là Vắng mặt
+    private JRadioButton radioKhongPhep; 
     private ButtonGroup groupViPham;
     private DefaultTableModel modelLichSuViPham;
     private JTable tableLichSuViPham;
 
     public TabHieuSuat(QuanLyNhanVienGUI parent) {
         this.parent = parent;
-        this.danhSachNV = parent.danhSachNV; // Lấy danh sách NV để check logic cũ
+        this.danhSachNV = parent.danhSachNV; 
         setLayout(new BorderLayout());
         
         JTabbedPane tabSub = new JTabbedPane();
         
         JPanel pnlChamCong = createPanelChamCong();
         JPanel pnlNghiPhep = createPanelNghiPhep();
-        JPanel pnlViPham = createPanelViPham(); // Panel khôi phục tính năng trừ điểm
+        JPanel pnlViPham = createPanelViPham(); 
         
         tabSub.addTab("Chấm công (Check-in/Out)", null, pnlChamCong, "Ghi nhận giờ vào ra");
         tabSub.addTab("Quản lý Nghỉ phép", null, pnlNghiPhep, "Duyệt đơn nghỉ phép");
@@ -51,7 +56,7 @@ public class TabHieuSuat extends JPanel {
         add(tabSub, BorderLayout.CENTER);
     }
 
-    // ================== PHẦN 1: CHẤM CÔNG (MỚI) ==================
+    // ================== PHẦN 1: CHẤM CÔNG (ĐÃ TỐI ƯU TỐC ĐỘ) ==================
     
     private JPanel createPanelChamCong() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
@@ -72,13 +77,16 @@ public class TabHieuSuat extends JPanel {
         gbc.gridx = 0; gbc.gridy = 1; inputPanel.add(new JLabel("Mã Nhân viên:"), gbc);
         gbc.gridx = 1; 
         txtMaNVChamCong = new JTextField(15);
+        
+        // Thêm sự kiện nhấn Enter để Check-in luôn cho nhanh
+        txtMaNVChamCong.addActionListener(e -> xuLyCheckIn());
         inputPanel.add(txtMaNVChamCong, gbc);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        JButton btnCheckIn = new JButton("CHECK-IN (Vào)");
+        btnCheckIn = new JButton("CHECK-IN (Vào)");
         btnCheckIn.setBackground(new Color(0, 153, 76)); btnCheckIn.setForeground(Color.WHITE);
         
-        JButton btnCheckOut = new JButton("CHECK-OUT (Ra)");
+        btnCheckOut = new JButton("CHECK-OUT (Ra)");
         btnCheckOut.setBackground(new Color(204, 0, 0)); btnCheckOut.setForeground(Color.WHITE);
 
         btnPanel.add(btnCheckIn);
@@ -102,7 +110,7 @@ public class TabHieuSuat extends JPanel {
         tableChamCong = new JTable(modelChamCong);
         panel.add(new JScrollPane(tableChamCong), BorderLayout.CENTER);
         
-        JButton btnRefresh = new JButton("Tải lại danh sách hôm nay");
+        btnRefresh = new JButton("Tải lại danh sách hôm nay");
         btnRefresh.addActionListener(e -> loadBangChamCongHienTai());
         panel.add(btnRefresh, BorderLayout.SOUTH);
 
@@ -117,15 +125,21 @@ public class TabHieuSuat extends JPanel {
     private void loadDanhSachCa() {
         if(cmbCaLamViec == null) return;
         cmbCaLamViec.removeAllItems();
-        try (Connection conn = DatabaseHandler.connect();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT * FROM ca_lam_viec")) {
-            while (rs.next()) {
-                String item = rs.getInt("id") + " - " + rs.getString("ten_ca") 
-                            + " (" + rs.getString("gio_bat_dau") + "-" + rs.getString("gio_ket_thuc") + ")";
-                cmbCaLamViec.addItem(item);
-            }
-        } catch (SQLException e) { e.printStackTrace(); }
+        // Chạy trên luồng riêng để không đơ lúc mở tab
+        new Thread(() -> {
+            try (Connection conn = DatabaseHandler.connect();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM ca_lam_viec")) {
+                
+                while (rs.next()) {
+                    String item = rs.getInt("id") + " - " + rs.getString("ten_ca") 
+                                + " (" + rs.getString("gio_bat_dau") + "-" + rs.getString("gio_ket_thuc") + ")";
+                    
+                    // Cập nhật giao diện phải dùng invokeLater
+                    SwingUtilities.invokeLater(() -> cmbCaLamViec.addItem(item));
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+        }).start();
     }
 
     private void xuLyCheckIn() {
@@ -136,41 +150,75 @@ public class TabHieuSuat extends JPanel {
         String caInfo = (String) cmbCaLamViec.getSelectedItem();
         int maCa = Integer.parseInt(caInfo.split(" - ")[0]); 
         
-        String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
-        String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
+        // 1. Khóa nút bấm và hiện thông báo chờ
+        btnCheckIn.setEnabled(false);
+        btnCheckIn.setText("Đang xử lý...");
+        lblStatusCheckIn.setText("⏳ Đang kết nối CSDL...");
+        lblStatusCheckIn.setForeground(Color.BLUE);
 
-        String checkSql = "SELECT COUNT(*) FROM cham_cong WHERE ma_nv=? AND ngay_lam_viec=? AND ma_ca=?";
-        String insertSql = "INSERT INTO cham_cong(ma_nv, ngay_lam_viec, ma_ca, gio_vao) VALUES(?,?,?,?)";
+        // 2. Chạy logic DB trên luồng riêng (Background Thread)
+        new Thread(() -> {
+            String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
+            String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
 
-        try (Connection conn = DatabaseHandler.connect();
-             PreparedStatement pCheck = conn.prepareStatement(checkSql);
-             PreparedStatement pInsert = conn.prepareStatement(insertSql)) {
-            
-            pCheck.setString(1, maNV); pCheck.setString(2, ngayHomNay); pCheck.setInt(3, maCa);
-            ResultSet rs = pCheck.executeQuery();
-            rs.next();
-            if (rs.getInt(1) > 0) {
-                lblStatusCheckIn.setText("Lỗi: NV " + maNV + " đã Check-in ca này rồi!");
-                lblStatusCheckIn.setForeground(Color.RED);
-                return;
+            String checkSql = "SELECT COUNT(*) FROM cham_cong WHERE ma_nv=? AND ngay_lam_viec=? AND ma_ca=?";
+            String insertSql = "INSERT INTO cham_cong(ma_nv, ngay_lam_viec, ma_ca, gio_vao) VALUES(?,?,?,?)";
+
+            try (Connection conn = DatabaseHandler.connect();
+                 PreparedStatement pCheck = conn.prepareStatement(checkSql);
+                 PreparedStatement pInsert = conn.prepareStatement(insertSql)) {
+                
+                pCheck.setString(1, maNV); pCheck.setString(2, ngayHomNay); pCheck.setInt(3, maCa);
+                ResultSet rs = pCheck.executeQuery();
+                rs.next();
+                boolean daCheckIn = rs.getInt(1) > 0;
+                rs.close();
+
+                // 3. Cập nhật lại giao diện sau khi có kết quả
+                SwingUtilities.invokeLater(() -> {
+                    if (daCheckIn) {
+                        lblStatusCheckIn.setText("Lỗi: NV " + maNV + " đã Check-in ca này rồi!");
+                        lblStatusCheckIn.setForeground(Color.RED);
+                    } else {
+                        try {
+                             // Thực hiện Insert (Lưu ý: đoạn này phải try-catch lại vì đang trong lambda)
+                             // Nhưng để đơn giản ta giả lập việc insert thành công ở trên luồng kia rồi
+                        } catch (Exception ex) {}
+                    }
+                });
+
+                if (!daCheckIn) {
+                    pInsert.setString(1, maNV);
+                    pInsert.setString(2, ngayHomNay);
+                    pInsert.setInt(3, maCa);
+                    pInsert.setString(4, gioHienTai);
+                    pInsert.executeUpdate();
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        lblStatusCheckIn.setText("✅ Check-in thành công: " + maNV + " lúc " + gioHienTai);
+                        lblStatusCheckIn.setForeground(new Color(0, 100, 0));
+                        parent.ghiNhatKy("Check-in", "NV: " + maNV + ", Ca: " + maCa);
+                        txtMaNVChamCong.setText(""); // Xóa ô nhập để nhập người tiếp theo
+                        txtMaNVChamCong.requestFocus(); // Focus lại để bắn súng barcode tiếp
+                        
+                        loadBangChamCongHienTai(); // Load lại bảng (sẽ chạy thread riêng)
+                    });
+                }
+
+            } catch (SQLException e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> {
+                    lblStatusCheckIn.setText("Lỗi DB: " + e.getMessage());
+                    lblStatusCheckIn.setForeground(Color.RED);
+                });
+            } finally {
+                // 4. Mở lại nút bấm
+                SwingUtilities.invokeLater(() -> {
+                    btnCheckIn.setEnabled(true);
+                    btnCheckIn.setText("CHECK-IN (Vào)");
+                });
             }
-
-            pInsert.setString(1, maNV);
-            pInsert.setString(2, ngayHomNay);
-            pInsert.setInt(3, maCa);
-            pInsert.setString(4, gioHienTai);
-            pInsert.executeUpdate();
-
-            lblStatusCheckIn.setText("✅ Check-in thành công: " + maNV + " lúc " + gioHienTai);
-            lblStatusCheckIn.setForeground(new Color(0, 100, 0));
-            
-            parent.ghiNhatKy("Check-in", "NV: " + maNV + ", Ca: " + maCa);
-            loadBangChamCongHienTai();
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi DB: " + e.getMessage());
-        }
+        }).start();
     }
 
     private void xuLyCheckOut() {
@@ -180,58 +228,99 @@ public class TabHieuSuat extends JPanel {
         if (cmbCaLamViec.getSelectedItem() == null) return;
         String caInfo = (String) cmbCaLamViec.getSelectedItem();
         int maCa = Integer.parseInt(caInfo.split(" - ")[0]);
-        String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
-        String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
 
-        String updateSql = "UPDATE cham_cong SET gio_ra = ? WHERE ma_nv=? AND ngay_lam_viec=? AND ma_ca=? AND gio_ra IS NULL";
+        // 1. Khóa nút bấm
+        btnCheckOut.setEnabled(false);
+        btnCheckOut.setText("Đang xử lý...");
 
-        try (Connection conn = DatabaseHandler.connect();
-             PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
-            
-            pstmt.setString(1, gioHienTai);
-            pstmt.setString(2, maNV);
-            pstmt.setString(3, ngayHomNay);
-            pstmt.setInt(4, maCa);
-            
-            int rows = pstmt.executeUpdate();
-            if (rows > 0) {
-                lblStatusCheckIn.setText("✅ Check-out thành công: " + maNV + " lúc " + gioHienTai);
-                lblStatusCheckIn.setForeground(new Color(0, 100, 0));
-                parent.ghiNhatKy("Check-out", "NV: " + maNV + ", Ca: " + maCa);
-                loadBangChamCongHienTai();
-            } else {
-                lblStatusCheckIn.setText("⚠️ Không tìm thấy bản ghi Check-in để Check-out!");
-                lblStatusCheckIn.setForeground(Color.RED);
+        // 2. Chạy luồng riêng
+        new Thread(() -> {
+            String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
+            String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
+            String updateSql = "UPDATE cham_cong SET gio_ra = ? WHERE ma_nv=? AND ngay_lam_viec=? AND ma_ca=? AND gio_ra IS NULL";
+
+            try (Connection conn = DatabaseHandler.connect();
+                 PreparedStatement pstmt = conn.prepareStatement(updateSql)) {
+                
+                pstmt.setString(1, gioHienTai);
+                pstmt.setString(2, maNV);
+                pstmt.setString(3, ngayHomNay);
+                pstmt.setInt(4, maCa);
+                
+                int rows = pstmt.executeUpdate();
+                
+                SwingUtilities.invokeLater(() -> {
+                    if (rows > 0) {
+                        lblStatusCheckIn.setText("✅ Check-out thành công: " + maNV + " lúc " + gioHienTai);
+                        lblStatusCheckIn.setForeground(new Color(0, 100, 0));
+                        parent.ghiNhatKy("Check-out", "NV: " + maNV + ", Ca: " + maCa);
+                        txtMaNVChamCong.setText("");
+                        txtMaNVChamCong.requestFocus();
+                        loadBangChamCongHienTai();
+                    } else {
+                        lblStatusCheckIn.setText("⚠️ Không tìm thấy bản ghi Check-in để Check-out!");
+                        lblStatusCheckIn.setForeground(Color.RED);
+                    }
+                });
+
+            } catch (SQLException e) { 
+                e.printStackTrace(); 
+                SwingUtilities.invokeLater(() -> lblStatusCheckIn.setText("Lỗi DB: " + e.getMessage()));
+            } finally {
+                SwingUtilities.invokeLater(() -> {
+                    btnCheckOut.setEnabled(true);
+                    btnCheckOut.setText("CHECK-OUT (Ra)");
+                });
             }
-
-        } catch (SQLException e) { e.printStackTrace(); }
+        }).start();
     }
 
     private void loadBangChamCongHienTai() {
         if(modelChamCong == null) return;
-        modelChamCong.setRowCount(0);
-        String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
-        String sql = "SELECT * FROM cham_cong WHERE ngay_lam_viec = ? ORDER BY id DESC";
         
-        try (Connection conn = DatabaseHandler.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        // Disable nút refresh
+        if (btnRefresh != null) {
+            btnRefresh.setEnabled(false);
+            btnRefresh.setText("Đang tải...");
+        }
+
+        new Thread(() -> {
+            // Xóa bảng cũ trên UI thread
+            SwingUtilities.invokeLater(() -> modelChamCong.setRowCount(0));
+
+            String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
+            String sql = "SELECT * FROM cham_cong WHERE ngay_lam_viec = ? ORDER BY id DESC";
             
-            pstmt.setString(1, ngayHomNay);
-            ResultSet rs = pstmt.executeQuery();
-            while(rs.next()) {
-                modelChamCong.addRow(new Object[]{
-                    rs.getInt("id"),
-                    rs.getString("ngay_lam_viec"),
-                    rs.getString("ma_nv"),
-                    rs.getInt("ma_ca"),
-                    rs.getString("gio_vao"),
-                    rs.getString("gio_ra")
+            try (Connection conn = DatabaseHandler.connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                
+                pstmt.setString(1, ngayHomNay);
+                ResultSet rs = pstmt.executeQuery();
+                while(rs.next()) {
+                    Object[] rowData = {
+                        rs.getInt("id"),
+                        rs.getString("ngay_lam_viec"),
+                        rs.getString("ma_nv"),
+                        rs.getInt("ma_ca"),
+                        rs.getString("gio_vao"),
+                        rs.getString("gio_ra")
+                    };
+                    // Thêm dòng mới vào bảng (phải làm trên UI Thread)
+                    SwingUtilities.invokeLater(() -> modelChamCong.addRow(rowData));
+                }
+            } catch (SQLException e) { e.printStackTrace(); }
+            finally {
+                SwingUtilities.invokeLater(() -> {
+                    if (btnRefresh != null) {
+                        btnRefresh.setEnabled(true);
+                        btnRefresh.setText("Tải lại danh sách hôm nay");
+                    }
                 });
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        }).start();
     }
 
-    // ================== PHẦN 2: NGHỈ PHÉP (MỚI) ==================
+    // ================== PHẦN 2: NGHỈ PHÉP (GIỮ NGUYÊN) ==================
 
     private JPanel createPanelNghiPhep() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
@@ -337,7 +426,7 @@ public class TabHieuSuat extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // ================== PHẦN 3: XỬ LÝ VI PHẠM (KHÔI PHỤC TÍNH NĂNG CŨ) ==================
+    // ================== PHẦN 3: XỬ LÝ VI PHẠM (GIỮ NGUYÊN) ==================
 
     private JPanel createPanelViPham() {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -378,7 +467,7 @@ public class TabHieuSuat extends JPanel {
         btnPhat.addActionListener(e -> xuLyGhiNhanViPham());
         panel.add(btnPhat, gbc);
         
-        // Bảng lịch sử phạt (trong phiên làm việc)
+        // Bảng lịch sử phạt
         gbc.gridy = 3; gbc.gridx = 0; gbc.gridwidth = 2; gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1.0; gbc.weighty = 1.0; 
         
@@ -402,7 +491,6 @@ public class TabHieuSuat extends JPanel {
             return; 
         }
 
-        // Tìm NV trong list RAM để lấy thông tin hiển thị
         NhanVien nvFound = null;
         for (NhanVien nv : danhSachNV) {
             if (nv.getMaNhanVien().equals(maNV)) {
@@ -426,10 +514,8 @@ public class TabHieuSuat extends JPanel {
             violationType = "Nghỉ không phép";
         }
 
-        // 1. Cập nhật RAM
         nvFound.addDiemViPham(pointsToAdd);
 
-        // 2. Cập nhật Database
         String sql = "UPDATE nhan_vien SET diem_vi_pham = ? WHERE ma_nv = ?";
         try (Connection conn = DatabaseHandler.connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -452,11 +538,9 @@ public class TabHieuSuat extends JPanel {
                 });
 
                 parent.ghiNhatKy("Phạt vi phạm", "NV: " + maNV + " - " + violationType);
-                
                 txtMaNVViPham.setText("");
                 radioDiMuon.setSelected(true);
                 
-                // Cập nhật ngay bảng Lương và Báo cáo để user thấy kết quả tiền bị trừ
                 parent.refreshLuongTable();
                 parent.refreshBaoCaoTab();
             }
