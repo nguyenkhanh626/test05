@@ -157,7 +157,7 @@ public class DatabaseHandler {
                 stmt.execute("INSERT INTO ca_lam_viec (ten_ca, gio_bat_dau, gio_ket_thuc) VALUES ('Ca Tối', '18:00', '22:00')");
             }
 
-            System.out.println("✅ Database đã được khởi tạo/cập nhật đầy đủ cho Giai đoạn 4!");
+            System.out.println("Database đã được khởi tạo/cập nhật đầy đủ");
             
         } catch (SQLException e) {
             e.printStackTrace();

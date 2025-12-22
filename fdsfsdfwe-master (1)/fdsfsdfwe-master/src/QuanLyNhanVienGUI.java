@@ -36,8 +36,9 @@ public class QuanLyNhanVienGUI extends JFrame {
     private TabDaoTao tabDaoTao;
     private TabTaiSan tabTaiSan;
     
-    // --- TAB HỆ THỐNG (MỚI) ---
+    // --- CÁC TAB MỚI (Admin & Security) ---
     private TabHeThong tabHeThong;
+    private TabEmail tabEmail; // [MỚI]
 
     // Các tiện ích
     NumberFormat currencyFormatter;
@@ -94,7 +95,8 @@ public class QuanLyNhanVienGUI extends JFrame {
         tabTaiSan = new TabTaiSan(this);
         tabBaoCao = new TabBaoCao(this);
         tabNhatKy = new TabNhatKy(this);
-        tabHeThong = new TabHeThong(this); // Khởi tạo Tab Hệ Thống
+        tabHeThong = new TabHeThong(this);
+        tabEmail = new TabEmail(this); // [MỚI]
 
         // Mặc định hiển thị Dashboard trước.
         tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan hệ thống");
@@ -104,7 +106,6 @@ public class QuanLyNhanVienGUI extends JFrame {
         refreshAllTabs();
     }
     
-    // Getter để lấy user hiện tại cho các Tab con sử dụng (Ví dụ: Đổi mật khẩu)
     public String getCurrentUser() {
         return currentUser;
     }
@@ -125,10 +126,9 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "Quản lý Tin tuyển dụng & Ứng viên");
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "Quản lý Khóa học nội bộ");
             tabbedPane.addTab("Tài sản", null, tabTaiSan, "Quản lý cấp phát Tài sản/Thiết bị");
+            tabbedPane.addTab("Gửi Email", null, tabEmail, "Gửi thông báo nội bộ"); // [MỚI]
             tabbedPane.addTab("Báo cáo & Thống kê", null, tabBaoCao, "Xem biểu đồ thưởng phạt");
             tabbedPane.addTab("Nhật ký hệ thống", null, tabNhatKy, "Log admin");
-            
-            // [MỚI] Tab Hệ thống cho Admin
             tabbedPane.addTab("Hệ thống & Bảo mật", null, tabHeThong, "Backup, Restore & Đổi mật khẩu");
         } 
         else if (role.equals("hr")) {
@@ -136,8 +136,8 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "");
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "");
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "");
+            tabbedPane.addTab("Gửi Email", null, tabEmail, ""); // [MỚI]
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "");
-            // HR cũng được đổi mật khẩu
             tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         } 
         else if (role.equals("accountant")) {
@@ -145,7 +145,6 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Tài sản", null, tabTaiSan, "");
             tabbedPane.addTab("Báo cáo", null, tabBaoCao, "");
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "Xem công để tính lương");
-             // Accountant cũng được đổi mật khẩu
             tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         }
         else {
