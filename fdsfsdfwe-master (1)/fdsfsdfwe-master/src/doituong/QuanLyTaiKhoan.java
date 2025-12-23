@@ -1,3 +1,4 @@
+package doituong;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -6,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Base64;
+
+import dataa.DatabaseHandler;
 
 public class QuanLyTaiKhoan {
 
@@ -39,7 +42,7 @@ public class QuanLyTaiKhoan {
         return null;
     }
     
-    // Giữ phương thức cũ để tương thích code cũ (mặc định return boolean)
+    
     public boolean kiemTraDangNhap(String username, String password) {
         return dangNhap(username, password) != null;
     }
@@ -63,11 +66,11 @@ public class QuanLyTaiKhoan {
         } catch (SQLException e) { e.printStackTrace(); return false; }
     }
     
-    // Overload cho code cũ
+    /* 
     public boolean themTaiKhoan(String username, String password) {
         return themTaiKhoan(username, password, "user");
     }
-
+    */
     public boolean doiMatKhau(String username, String matKhauCu, String matKhauMoi) {
         if (kiemTraDangNhap(username, matKhauCu)) {
             String saltMoi = taoMuoiNgauNhien();

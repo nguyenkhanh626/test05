@@ -1,8 +1,15 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import doituong.*;
+import dataa.*;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.*;
@@ -12,40 +19,36 @@ import java.util.List;
 import java.util.Date;
 
 /**
- * TabLichLamViec - Hệ thống quản lý Phân ca & Lịch biểu trực quan.
- * Tính năng:
- * - Vẽ lịch tháng (Calendar View) thủ công (Custom Painting).
- * - Kéo thả/Click để xếp ca cho nhân viên.
- * - Tự động xếp lịch (Auto-schedule).
- * - Báo cáo nhanh tình hình nhân sự trong ngày.
+ TabLichLamViec - Hệ thống quản lý Phân ca & Lịch biểu trực quan.
+ Tính năng:
+ Vẽ lịch tháng (Calendar View) thủ công (Custom Painting).
+ Kéo thả/Click để xếp ca cho nhân viên.
+ Tự động xếp lịch (Auto-schedule, mức cơ bản nhất).
+ Báo cáo nhanh tình hình nhân sự trong ngày.
  */
 public class TabLichLamViec extends JPanel {
 
-    // --- Core Components ---
     private QuanLyNhanVienGUI parent;
     private Calendar currentCalendar;
     private int currentMonth; // 0-11
     private int currentYear;
     
-    // --- UI Components ---
-    private JPanel pnlCalendarGrid; // Lưới chứa các ngày
+    private JPanel pnlCalendarGrid;
     private JLabel lblMonthYear;
     private JComboBox<String> cmbNhanVienFilter;
-    private JComboBox<String> cmbCaLamViecQuick; // Chọn ca để gán nhanh
-    private JCheckBox chkCheDoGanNhanh; // Checkbox bật chế độ "Click là gán"
+    private JComboBox<String> cmbCaLamViecQuick;
+    private JCheckBox chkCheDoGanNhanh;
     
-    // --- Data Cache ---
-    private Map<String, List<ShiftData>> mapLichLamViec; // Key: "dd/MM/yyyy", Value: List assignments
+    private Map<String, List<ShiftData>> mapLichLamViec;
     private List<CaLamViec> danhSachCa;
     private List<NhanVien> danhSachNV;
 
-    // --- Constants ---
     private static final String[] DAYS_OF_WEEK = {"CN", "T2", "T3", "T4", "T5", "T6", "T7"};
     private static final Color COL_HEADER = new Color(230, 240, 255);
     private static final Color COL_WEEKEND = new Color(255, 245, 245);
     private static final Color COL_TODAY_BORDER = new Color(255, 100, 0);
     
-    // Formatter
+    //Formatter
     private SimpleDateFormat sdfDb = new SimpleDateFormat("dd/MM/yyyy");
 
     public TabLichLamViec(QuanLyNhanVienGUI parent) {
@@ -57,33 +60,27 @@ public class TabLichLamViec extends JPanel {
         
         this.mapLichLamViec = new HashMap<>();
         this.danhSachCa = new ArrayList<>();
-        this.danhSachNV = parent.danhSachNV; // Lấy reference từ cha
+        this.danhSachNV = parent.danhSachNV;
 
         setLayout(new BorderLayout(5, 5));
         setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Khởi tạo dữ liệu
         loadDanhSachCa();
         loadDuLieuLichThang(currentMonth, currentYear);
 
-        // Xây dựng giao diện
         add(createControlPanel(), BorderLayout.NORTH);
         add(createMainCalendarPanel(), BorderLayout.CENTER);
         add(createSidePanel(), BorderLayout.EAST);
         
-        // Vẽ lần đầu
         refreshCalendar();
     }
 
-    // =========================================================================
-    // SECTION 1: UI INITIALIZATION
-    // =========================================================================
 
     private JPanel createControlPanel() {
         JPanel pnl = new JPanel(new BorderLayout());
         pnl.setBorder(new EmptyBorder(0, 0, 10, 0));
 
-        // -- Left: Navigation --
+        //Navigation
         JPanel pnlNav = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         JButton btnPrev = new JButton("<< Tháng trước");
         JButton btnNext = new JButton("Tháng sau >>");
@@ -108,7 +105,7 @@ public class TabLichLamViec extends JPanel {
         pnlNav.add(btnNext);
         pnlNav.add(btnToday);
 
-        // -- Right: Quick Actions --
+        //Quick Actions
         JPanel pnlAction = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         
         JButton btnAutoSchedule = new JButton("⚡ Tự động xếp ca");
@@ -134,7 +131,7 @@ public class TabLichLamViec extends JPanel {
         JPanel pnlWrapper = new JPanel(new BorderLayout());
         pnlWrapper.setBorder(new LineBorder(Color.GRAY, 1));
 
-        // -- Header Row (CN, T2, T3...) --
+        //Header Row (CN, T2, T3...)
         JPanel pnlHeader = new JPanel(new GridLayout(1, 7));
         pnlHeader.setPreferredSize(new Dimension(0, 30));
         for (String day : DAYS_OF_WEEK) {
@@ -146,7 +143,7 @@ public class TabLichLamViec extends JPanel {
             pnlHeader.add(lbl);
         }
 
-        // -- Calendar Grid --
+        //Calendar Grid
         pnlCalendarGrid = new JPanel(new GridLayout(0, 7)); // Row dynamic
         pnlCalendarGrid.setBackground(Color.WHITE);
 
@@ -162,7 +159,7 @@ public class TabLichLamViec extends JPanel {
         pnlSide.setPreferredSize(new Dimension(250, 0));
         pnlSide.setBorder(new EmptyBorder(0, 10, 0, 0));
 
-        // 1. Tool Box: Gán nhanh
+        //Tool Box: Gán nhanh
         JPanel pnlTool = new JPanel(new GridLayout(0, 1, 5, 5));
         pnlTool.setBorder(BorderFactory.createTitledBorder("Công cụ Gán nhanh"));
         
@@ -181,7 +178,7 @@ public class TabLichLamViec extends JPanel {
         
         pnlTool.add(new JLabel("<html><i>HD: Bật checkbox, chọn Ca,<br>sau đó click vào ngày trên lịch<br>để gán nhanh cho <b>tất cả NV</b><br>hoặc NV đang lọc.</i></html>"));
 
-        // 2. Filter: Lọc theo nhân viên
+        //Filter: Lọc theo nhân viên
         JPanel pnlFilter = new JPanel(new GridLayout(0, 1, 5, 5));
         pnlFilter.setBorder(BorderFactory.createTitledBorder("Lọc Lịch theo NV"));
         
@@ -190,10 +187,10 @@ public class TabLichLamViec extends JPanel {
         for (NhanVien nv : danhSachNV) {
             cmbNhanVienFilter.addItem(nv.getMaNhanVien() + " - " + nv.getHoTen());
         }
-        cmbNhanVienFilter.addActionListener(e -> refreshCalendar()); // Redraw khi đổi filter
+        cmbNhanVienFilter.addActionListener(e -> refreshCalendar()); // vẽ lại khi đổi filter
         pnlFilter.add(cmbNhanVienFilter);
 
-        // 3. Legend (Chú thích)
+        //Legend (Chú thích)
         JPanel pnlLegend = new JPanel(new GridLayout(0, 1, 5, 5));
         pnlLegend.setBorder(BorderFactory.createTitledBorder("Chú thích"));
         pnlLegend.add(createLegendItem(new Color(204, 255, 204), "Ca Sáng"));
@@ -201,7 +198,7 @@ public class TabLichLamViec extends JPanel {
         pnlLegend.add(createLegendItem(new Color(204, 229, 255), "Ca Tối"));
         pnlLegend.add(createLegendItem(new Color(255, 204, 229), "Ca HC/Khác"));
 
-        // 4. Stats Mini
+        //Stats Mini
         JPanel pnlStats = new JPanel(new BorderLayout());
         pnlStats.setBorder(BorderFactory.createTitledBorder("Thống kê tháng"));
         JTextArea txtStats = new JTextArea("Tổng công: ...\nSố ca đêm: ...");
@@ -216,7 +213,7 @@ public class TabLichLamViec extends JPanel {
         pnlSide.add(pnlLegend);
         pnlSide.add(Box.createVerticalStrut(10));
         pnlSide.add(pnlStats);
-        pnlSide.add(Box.createVerticalGlue()); // Push everything up
+        pnlSide.add(Box.createVerticalGlue());
 
         return pnlSide;
     }
@@ -231,41 +228,30 @@ public class TabLichLamViec extends JPanel {
         p.add(new JLabel(text));
         return p;
     }
-
-    // =========================================================================
-    // SECTION 2: LOGIC & RENDERING (THE HARD PART)
-    // =========================================================================
-
+    
+    // ***LOGIC & RENDERING
+    
     private void changeMonth(int offset) {
         currentCalendar.add(Calendar.MONTH, offset);
         currentMonth = currentCalendar.get(Calendar.MONTH);
         currentYear = currentCalendar.get(Calendar.YEAR);
-        loadDuLieuLichThang(currentMonth, currentYear); // Reload DB
+        loadDuLieuLichThang(currentMonth, currentYear);
         refreshCalendar();
     }
 
-    /**
-     * Hàm quan trọng nhất: Vẽ lại toàn bộ lưới lịch
-     */
     private void refreshCalendar() {
         pnlCalendarGrid.removeAll();
         
-        // Cập nhật Label Tháng/Năm
         lblMonthYear.setText("Tháng " + (currentMonth + 1) + " / " + currentYear);
 
-        // Tính toán ngày bắt đầu
         Calendar cal = (Calendar) currentCalendar.clone();
         cal.set(Calendar.DAY_OF_MONTH, 1);
         int startDayOfWeek = cal.get(Calendar.DAY_OF_WEEK); // 1=CN, 2=T2...
         int maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
-        // Fix offset (VN: T2 là đầu tuần, nhưng Calendar.US: CN là đầu tuần)
-        // Mảng DAYS_OF_WEEK: CN, T2, T3... -> Index 0 là CN.
-        // startDayOfWeek java: CN=1, T2=2.
-        // Ta cần map vào grid. Grid ô 0 là CN.
         int gridOffset = startDayOfWeek - 1; 
 
-        // Vẽ các ô trống trước ngày mùng 1
+        //Vẽ các ô trống trước ngày 1
         for (int i = 0; i < gridOffset; i++) {
             JPanel empty = new JPanel();
             empty.setBackground(new Color(245, 245, 245));
@@ -273,11 +259,11 @@ public class TabLichLamViec extends JPanel {
             pnlCalendarGrid.add(empty);
         }
 
-        // Vẽ các ngày trong tháng
+        //Vẽ các ngày trong tháng
         String currentFilterNV = null;
         if (cmbNhanVienFilter.getSelectedIndex() > 0) {
             String selected = (String) cmbNhanVienFilter.getSelectedItem();
-            currentFilterNV = selected.split(" - ")[0]; // Lấy mã NV
+            currentFilterNV = selected.split(" - ")[0];
         }
 
         Calendar today = Calendar.getInstance();
@@ -286,7 +272,7 @@ public class TabLichLamViec extends JPanel {
             String dateKey = String.format("%02d/%02d/%04d", d, currentMonth + 1, currentYear);
             List<ShiftData> shifts = mapLichLamViec.getOrDefault(dateKey, new ArrayList<>());
 
-            // Filter logic: Nếu đang lọc NV, chỉ hiển thị shift của NV đó
+            //Filter logic: Nếu đang lọc NV, chỉ hiển thị shift của NV đó
             List<ShiftData> displayShifts = new ArrayList<>();
             if (currentFilterNV != null) {
                 for (ShiftData s : shifts) {
@@ -304,10 +290,10 @@ public class TabLichLamViec extends JPanel {
             pnlCalendarGrid.add(dayPanel);
         }
 
-        // Fill nốt các ô trống cuối bảng cho đẹp grid (Total 42 ô thường dùng cho 6 hàng)
+        //điền nốt các ô trống cuối bảng cho đẹp grid (tổng 42 ô thường dùng cho 6 hàng)
         int totalSlots = gridOffset + maxDay;
         int remaining = 42 - totalSlots;
-        if (remaining < 7 && totalSlots <= 35) remaining += 7; // Đảm bảo đủ hàng
+        if (remaining < 7 && totalSlots <= 35) remaining += 7;
         
         for (int i = 0; i < remaining; i++) {
             JPanel empty = new JPanel();
@@ -320,9 +306,7 @@ public class TabLichLamViec extends JPanel {
         pnlCalendarGrid.repaint();
     }
 
-    // =========================================================================
-    // SECTION 3: INNER CLASSES (CUSTOM COMPONENTS)
-    // =========================================================================
+    //INNER CLASSES (CUSTOM COMPONENTS)
 
     /**
      * DayPanel: Đại diện cho 1 ô ngày trên lịch
@@ -342,7 +326,7 @@ public class TabLichLamViec extends JPanel {
             setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
             setBackground(Color.WHITE);
 
-            // Header ngày
+            //Header ngày
             JLabel lblDay = new JLabel(String.valueOf(day) + "  ", SwingConstants.RIGHT);
             lblDay.setFont(new Font("Arial", isToday ? Font.BOLD : Font.PLAIN, 14));
             if (isToday) {
@@ -351,7 +335,7 @@ public class TabLichLamViec extends JPanel {
             }
             add(lblDay, BorderLayout.NORTH);
 
-            // Body: Danh sách Shift (Vẽ tối đa 3 dòng, còn lại hiện +...)
+            //Body: Danh sách Shift (Vẽ tối đa 3 dòng, còn lại hiện +...)
             JPanel pnlShifts = new JPanel();
             pnlShifts.setLayout(new BoxLayout(pnlShifts, BoxLayout.Y_AXIS));
             pnlShifts.setBackground(Color.WHITE);
@@ -367,7 +351,7 @@ public class TabLichLamViec extends JPanel {
                     break;
                 }
                 
-                // Vẽ 1 dòng shift: [Sáng] NV001
+                //Vẽ 1 dòng shift: [Sáng] NV001
                 JPanel row = new JPanel(new BorderLayout());
                 row.setOpaque(true);
                 row.setBackground(getColorForShift(s.tenCa));
@@ -376,19 +360,15 @@ public class TabLichLamViec extends JPanel {
                 String shortName = getTenNVNganGon(s.maNV);
                 JLabel lblInfo = new JLabel(shortName);
                 lblInfo.setFont(new Font("Arial", Font.PLAIN, 10));
-                
-                // Icon chấm tròn màu ca
-                // JLabel icon = new JLabel("● ");
-                // icon.setForeground(getColorTextForShift(s.tenCa));
-                
+                       
                 row.add(lblInfo, BorderLayout.CENTER);
                 pnlShifts.add(row);
-                pnlShifts.add(Box.createVerticalStrut(1)); // gap
+                pnlShifts.add(Box.createVerticalStrut(1));
                 count++;
             }
             add(pnlShifts, BorderLayout.CENTER);
 
-            // Event Click
+            //Event Click
             addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
@@ -401,7 +381,7 @@ public class TabLichLamViec extends JPanel {
                 
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    setBackground(new Color(240, 248, 255)); // Hover effect
+                    setBackground(new Color(240, 248, 255));
                 }
 
                 @Override
@@ -412,9 +392,7 @@ public class TabLichLamViec extends JPanel {
         }
     }
 
-    // =========================================================================
-    // SECTION 4: DATA HANDLING & DIALOGS
-    // =========================================================================
+    //DATA HANDLING & DIALOGS
 
     private Color getColorForShift(String tenCa) {
         if (tenCa.toLowerCase().contains("sáng")) return new Color(204, 255, 204);
@@ -424,7 +402,7 @@ public class TabLichLamViec extends JPanel {
     }
 
     private String getTenNVNganGon(String maNV) {
-        // Tìm trong list để lấy tên, nếu không thấy trả về mã
+        
         for (NhanVien nv : danhSachNV) {
             if (nv.getMaNhanVien().equals(maNV)) {
                 String[] parts = nv.getHoTen().split(" ");
@@ -452,7 +430,7 @@ public class TabLichLamViec extends JPanel {
 
     private void loadDuLieuLichThang(int month, int year) {
         mapLichLamViec.clear();
-        String monthStr = String.format("/%02d/%04d", month + 1, year); // Search pattern: "%/MM/yyyy"
+        String monthStr = String.format("/%02d/%04d", month + 1, year); //Search pattern: "%/MM/yyyy"
         
         String sql = "SELECT l.*, c.ten_ca FROM lich_lam_viec l "
                    + "JOIN ca_lam_viec c ON l.ma_ca = c.id "
@@ -479,18 +457,17 @@ public class TabLichLamViec extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    /**
-     * Xử lý gán nhanh (Quick Assign) khi click vào ngày
-     */
+
+     //Xử lý gán nhanh (Quick Assign) khi click vào ngày
+
     private void xuLyGanNhanh(String date) {
         if (cmbCaLamViecQuick.getSelectedItem() == null) return;
         
         String caStr = (String) cmbCaLamViecQuick.getSelectedItem();
-        // Parse ID ca từ chuỗi toString()
         int maCa = Integer.parseInt(caStr.split(" - ")[0]);
         String tenCa = caStr.split(" - ")[1];
 
-        // Xác định đối tượng gán: Tất cả hay 1 người?
+        //Xác định đối tượng gán: Tất cả hay 1 người?
         String targetNV = null; // null = all
         if (cmbNhanVienFilter.getSelectedIndex() > 0) {
             targetNV = ((String)cmbNhanVienFilter.getSelectedItem()).split(" - ")[0];
@@ -509,7 +486,7 @@ public class TabLichLamViec extends JPanel {
             for (NhanVien nv : danhSachNV) listNVToAssign.add(nv.getMaNhanVien());
         }
 
-        // Thực hiện Insert/Update DB
+        // Insert/Update DB
         int successCount = 0;
         try (Connection conn = DatabaseHandler.connect()) {
             String sql = "INSERT OR REPLACE INTO lich_lam_viec (ma_nv, ngay, ma_ca, ghi_chu) VALUES (?, ?, ?, ?)";
@@ -527,7 +504,6 @@ public class TabLichLamViec extends JPanel {
             
             parent.ghiNhatKy("Phân ca nhanh", "Ngày: " + date + ", Ca: " + maCa + ", SL: " + successCount);
             
-            // Reload và vẽ lại
             loadDuLieuLichThang(currentMonth, currentYear);
             refreshCalendar();
 
@@ -536,18 +512,18 @@ public class TabLichLamViec extends JPanel {
         }
     }
 
-    /**
-     * Hiển thị Dialog chi tiết để chỉnh sửa thủ công cho 1 ngày
-     */
+     // Hiển thị Dialog chi tiết để chỉnh sửa thủ công cho 1 ngày
+
     private void showDetailDialog(String date, List<ShiftData> currentShifts) {
         JDialog dlg = new JDialog(parent, "Quản lý ca ngày: " + date, true);
         dlg.setSize(600, 400);
         dlg.setLocationRelativeTo(this);
         dlg.setLayout(new BorderLayout());
 
-        // Bảng danh sách ca đã gán
         String[] cols = {"ID", "Mã NV", "Họ Tên", "Ca làm việc", "Ghi chú"};
-        // Override hàm isCellEditable để chặn sửa trực tiếp
+
+        //Chặn sửa trực tiếp
+
     DefaultTableModel model = new DefaultTableModel(cols, 0) {
     @Override
     public boolean isCellEditable(int row, int column) {
@@ -564,7 +540,7 @@ public class TabLichLamViec extends JPanel {
         
         dlg.add(new JScrollPane(table), BorderLayout.CENTER);
 
-        // Panel thêm/xóa
+        //Panel thêm/xóa
         JPanel pnlBot = new JPanel(new GridLayout(2, 1));
         
         JPanel pnlAdd = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -591,7 +567,7 @@ public class TabLichLamViec extends JPanel {
         pnlBot.add(pnlDel);
         dlg.add(pnlBot, BorderLayout.SOUTH);
 
-        // Event logic dialog
+        //Event logic dialog
         btnAdd.addActionListener(e -> {
             String selNV = ((String)cmbNV.getSelectedItem()).split(" - ")[0];
             String selCa = ((String)cmbCa.getSelectedItem());
@@ -630,9 +606,9 @@ public class TabLichLamViec extends JPanel {
         dlg.setVisible(true);
     }
 
-    /**
+    /*
      * Dialog Tự động xếp ca (Auto Schedule)
-     * Đây là tính năng nâng cao: Random hoặc Round-robin
+     * Tính năng nâng cao: Random hoặc Round-robin
      */
     private void showAutoScheduleDialog() {
         JDialog dlg = new JDialog(parent, "Tự động xếp lịch", true);
@@ -650,7 +626,7 @@ public class TabLichLamViec extends JPanel {
         JPanel pnlDate = new JPanel(new FlowLayout());
         JTextField txtFrom = new JTextField(10); 
         JTextField txtTo = new JTextField(10);
-        // Default: Tuần tới
+        //Default: Tuần tới
         Calendar c = Calendar.getInstance();
         txtFrom.setText(sdfDb.format(c.getTime()));
         c.add(Calendar.DAY_OF_YEAR, 7);
@@ -680,8 +656,8 @@ public class TabLichLamViec extends JPanel {
                 Date d2 = sdfDb.parse(txtTo.getText());
                 if (d2.before(d1)) throw new Exception("Ngày kết thúc < Ngày bắt đầu");
                 
-                // Logic xếp ca giả lập (Round-robin)
-                // Duyệt từng ngày, mỗi ngày duyệt list NV, gán lần lượt Ca Sáng -> Ca Chiều
+                //Logic xếp ca giả lập (Round-robin)
+                //Duyệt từng ngày, mỗi ngày duyệt list NV, gán lần lượt Ca Sáng -> Ca Chiều
                 Connection conn = DatabaseHandler.connect();
                 conn.setAutoCommit(false); // Transaction
                 
@@ -692,11 +668,11 @@ public class TabLichLamViec extends JPanel {
                 Calendar calRun = Calendar.getInstance();
                 calRun.setTime(d1);
                 
-                int caIndex = 0; // Để xoay vòng ca
+                int caIndex = 0; //Để xoay vòng ca
                 int totalAssigned = 0;
 
                 while (!calRun.getTime().after(d2)) {
-                    // Check Sunday
+                    //Check Sunday
                     if (chkSkipSunday.isSelected() && calRun.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
                         calRun.add(Calendar.DAY_OF_YEAR, 1);
                         continue;
@@ -706,8 +682,8 @@ public class TabLichLamViec extends JPanel {
                     
                     for (NhanVien nv : danhSachNV) {
                         // Logic random đơn giản: Mỗi người 1 ca/ngày
-                        // Ca 1 (Sáng), Ca 2 (Chiều). Bỏ qua Ca 3 (Tối) cho đơn giản
-                        CaLamViec caToAssign = danhSachCa.get(caIndex % 2); // Chỉ lấy 2 ca đầu
+                        // Ca 1 (Sáng), Ca 2 (Chiều)
+                        CaLamViec caToAssign = danhSachCa.get(caIndex % 2);
                         
                         String sql = "INSERT OR REPLACE INTO lich_lam_viec (ma_nv, ngay, ma_ca, ghi_chu) VALUES (?, ?, ?, ?)";
                         PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -720,8 +696,8 @@ public class TabLichLamViec extends JPanel {
                         caIndex++;
                         totalAssigned++;
                     }
-                    // Reset index mỗi ngày để xoay vòng công bằng hơn (hoặc giữ nguyên)
-                    // caIndex++; 
+                    //Reset index mỗi ngày để xoay vòng công bằng hơn (hoặc giữ nguyên)
+                    //caIndex++; 
                     calRun.add(Calendar.DAY_OF_YEAR, 1);
                 }
                 
@@ -741,9 +717,7 @@ public class TabLichLamViec extends JPanel {
         dlg.setVisible(true);
     }
 
-    // =========================================================================
-    // SECTION 5: HELPER CLASSES (POJO)
-    // =========================================================================
+    //HELPER CLASSES (POJO)
 
     private class ShiftData {
         int id;

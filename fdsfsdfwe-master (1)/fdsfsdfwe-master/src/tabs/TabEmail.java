@@ -1,5 +1,11 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import doituong.*;
+
 import java.awt.*;
 import java.util.List;
 import java.util.Properties;
@@ -11,17 +17,15 @@ public class TabEmail extends JPanel {
     private QuanLyNhanVienGUI parent;
     private List<NhanVien> danhSachNV;
 
-    // Components
     private JTable tableNV;
     private DefaultTableModel modelNV;
     private JTextField txtTieuDe;
     private JTextArea txtNoiDung;
-    private JPasswordField txtMatKhauEmail; // Mật khẩu ứng dụng của Gmail
+    private JPasswordField txtMatKhauEmail;
     private JTextField txtEmailGui;
     private JProgressBar progressBar;
     private JLabel lblStatus;
     
-    // [ĐÃ SỬA] Đưa nút Gửi ra ngoài để hàm gửi mail có thể truy cập
     private JButton btnGui; 
 
     public TabEmail(QuanLyNhanVienGUI parent) {
@@ -31,7 +35,7 @@ public class TabEmail extends JPanel {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // --- PANEL TRÁI: DANH SÁCH NHÂN VIÊN ---
+        //DANH SÁCH NHÂN VIÊN
         JPanel pnlLeft = new JPanel(new BorderLayout());
         pnlLeft.setBorder(BorderFactory.createTitledBorder("Chọn Nhân viên nhận mail"));
         pnlLeft.setPreferredSize(new Dimension(400, 0));
@@ -40,18 +44,16 @@ public class TabEmail extends JPanel {
         modelNV = new DefaultTableModel(cols, 0) {
             @Override
             public Class<?> getColumnClass(int columnIndex) {
-                if(columnIndex == 0) return Boolean.class; // Cột checkbox
+                if(columnIndex == 0) return Boolean.class;
                 return super.getColumnClass(columnIndex);
             }
         };
         tableNV = new JTable(modelNV);
         
-        // Load nhân viên vào bảng
         loadNhanVien();
         
         pnlLeft.add(new JScrollPane(tableNV), BorderLayout.CENTER);
         
-        // Nút chọn tất cả
         JButton btnSelectAll = new JButton("Chọn tất cả");
         btnSelectAll.addActionListener(e -> toggleSelection(true));
         
@@ -63,23 +65,23 @@ public class TabEmail extends JPanel {
         pnlBtnSelect.add(btnDeselectAll);
         pnlLeft.add(pnlBtnSelect, BorderLayout.SOUTH);
 
-        // --- PANEL PHẢI: SOẠN THẢO EMAIL ---
+        //PANEL PHẢI: SOẠN THẢO EMAIL
         JPanel pnlRight = new JPanel(new BorderLayout(10, 10));
         pnlRight.setBorder(BorderFactory.createTitledBorder("Soạn thảo Nội dung"));
 
-        // Cấu hình Sender
+        //Cấu hình Sender
         JPanel pnlConfig = new JPanel(new GridLayout(2, 2, 5, 5));
         pnlConfig.setBorder(BorderFactory.createTitledBorder("Cấu hình Gmail Gửi (Bắt buộc)"));
         
         pnlConfig.add(new JLabel("Gmail gửi (VD: admin@gmail.com):"));
-        txtEmailGui = new JTextField("nhanvientest.java@gmail.com"); // Điền sẵn demo
+        txtEmailGui = new JTextField("nhanvientest.java@gmail.com");//demo
         pnlConfig.add(txtEmailGui);
         
         pnlConfig.add(new JLabel("Mật khẩu Ứng dụng (App Password):"));
         txtMatKhauEmail = new JPasswordField();
         pnlConfig.add(txtMatKhauEmail);
         
-        // Form soạn thảo
+        //Form soạn thảo
         JPanel pnlCompose = new JPanel(new BorderLayout(5, 5));
         JPanel pnlSubject = new JPanel(new BorderLayout());
         pnlSubject.add(new JLabel("Tiêu đề: "), BorderLayout.WEST);
@@ -90,9 +92,8 @@ public class TabEmail extends JPanel {
         txtNoiDung.setLineWrap(true);
         
         pnlCompose.add(pnlConfig, BorderLayout.NORTH);
-        pnlCompose.add(pnlSubject, BorderLayout.CENTER); // Tạm dùng layout lồng
+        pnlCompose.add(pnlSubject, BorderLayout.CENTER);
         
-        // Layout tổng phải
         JPanel pnlContent = new JPanel(new BorderLayout(5, 5));
         pnlContent.add(pnlSubject, BorderLayout.NORTH);
         pnlContent.add(new JScrollPane(txtNoiDung), BorderLayout.CENTER);
@@ -100,10 +101,9 @@ public class TabEmail extends JPanel {
         pnlRight.add(pnlConfig, BorderLayout.NORTH);
         pnlRight.add(pnlContent, BorderLayout.CENTER);
 
-        // --- PANEL DƯỚI: NÚT GỬI & TIẾN ĐỘ ---
+        //PANEL DƯỚI: NÚT GỬI & TIẾN ĐỘ
         JPanel pnlBottom = new JPanel(new BorderLayout(5, 5));
         
-        // [ĐÃ SỬA] Khởi tạo biến toàn cục
         btnGui = new JButton("GỬI EMAIL HÀNG LOẠT");
         btnGui.setBackground(new Color(0, 102, 204));
         btnGui.setForeground(Color.WHITE);
@@ -121,7 +121,6 @@ public class TabEmail extends JPanel {
         pnlBottom.add(btnGui, BorderLayout.WEST);
         pnlBottom.add(pnlProgress, BorderLayout.CENTER);
 
-        // --- ADD VÀO MAIN ---
         add(pnlLeft, BorderLayout.WEST);
         add(pnlRight, BorderLayout.CENTER);
         add(pnlBottom, BorderLayout.SOUTH);
@@ -130,7 +129,6 @@ public class TabEmail extends JPanel {
     private void loadNhanVien() {
         modelNV.setRowCount(0);
         for (NhanVien nv : danhSachNV) {
-            // Mặc định cột check là false
             modelNV.addRow(new Object[]{false, nv.getMaNhanVien(), nv.getHoTen(), nv.getEmail()});
         }
     }
@@ -152,7 +150,7 @@ public class TabEmail extends JPanel {
             return;
         }
 
-        // Lọc danh sách nhận
+        //Lọc danh sách nhận
         java.util.List<String> recipients = new java.util.ArrayList<>();
         for (int i = 0; i < modelNV.getRowCount(); i++) {
             Boolean isChecked = (Boolean) modelNV.getValueAt(i, 0);
@@ -167,13 +165,11 @@ public class TabEmail extends JPanel {
             return;
         }
 
-        // Bắt đầu gửi trong luồng riêng để không đơ giao diện
         new Thread(() -> {
-            // Cập nhật UI an toàn
             SwingUtilities.invokeLater(() -> {
                 progressBar.setMaximum(recipients.size());
                 progressBar.setValue(0);
-                btnGui.setEnabled(false); // [ĐÃ SỬA] Giờ đã có thể gọi btnGui
+                btnGui.setEnabled(false);
             });
 
             Properties props = new Properties();
@@ -217,7 +213,7 @@ public class TabEmail extends JPanel {
             final int finalCount = countSuccess;
             SwingUtilities.invokeLater(() -> {
                 lblStatus.setText("Hoàn tất! Gửi thành công: " + finalCount + "/" + recipients.size());
-                btnGui.setEnabled(true); // [ĐÃ SỬA] Mở lại nút sau khi gửi xong
+                btnGui.setEnabled(true);
                 JOptionPane.showMessageDialog(this, "Đã gửi xong " + finalCount + " email.");
             });
             

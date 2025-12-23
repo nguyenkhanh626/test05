@@ -1,3 +1,4 @@
+package doituong;
 public class PhongBan {
     private String maPhongBan;
     private String tenPhongBan;

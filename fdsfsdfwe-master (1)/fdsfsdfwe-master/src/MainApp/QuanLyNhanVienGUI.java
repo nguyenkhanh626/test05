@@ -1,4 +1,9 @@
+package MainApp;
 import javax.swing.*;
+
+import dataa.*;
+import doituong.*;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -10,43 +15,45 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import tabs.*;
+
 public class QuanLyNhanVienGUI extends JFrame {
 
-    // Danh sách dữ liệu (Cache trên RAM)
-    List<NhanVien> danhSachNV;
-    List<PhongBan> danhSachPB;
-    List<DuAn> danhSachDuAn;
+    
+    public List<NhanVien> danhSachNV;
+    public List<PhongBan> danhSachPB;
+    public List<DuAn> danhSachDuAn;
     private List<LogEntry> danhSachLog;
 
-    // Các thành phần giao diện
+    
     private JTabbedPane tabbedPane;
     
-    // --- CÁC TAB CHỨC NĂNG ---
+    
     private TabDashboard tabDashboard; 
     private TabNhanVien tabNhanVien;
     private TabPhongBan tabPhongBan;
     private TabDuAn tabDuAn;
     private TabHieuSuat tabHieuSuat;
-    private TabLichLamViec tabLichLamViec; // [MỚI] Thêm tab Lịch làm việc
+    private TabLichLamViec tabLichLamViec; 
     private TabLuong tabLuong;
     private TabBaoCao tabBaoCao;
     private TabNhatKy tabNhatKy;
     
-    // --- CÁC TAB MỚI (ERP - Giai đoạn 3) ---
+    
     private TabTuyenDung tabTuyenDung;
     private TabDaoTao tabDaoTao;
     private TabTaiSan tabTaiSan;
     
-    // --- CÁC TAB MỚI (Admin & Security) ---
+    
     private TabHeThong tabHeThong;
-    private TabEmail tabEmail; // [MỚI]
+    private TabEmail tabEmail; 
 
-    // Các tiện ích
-    NumberFormat currencyFormatter;
+    
+    public NumberFormat currencyFormatter;
     private QuanLyTaiKhoan quanLyTaiKhoan; 
     private String currentUser = ""; 
     
-    // Header Components
+    
     private JButton btnTaoTaiKhoan; 
     private JLabel lblXinChao; 
     private JLabel lblThoiGianPhien; 
@@ -54,53 +61,53 @@ public class QuanLyNhanVienGUI extends JFrame {
     private long startSessionTime;   
 
     public QuanLyNhanVienGUI() {
-        // 1. Khởi tạo Database
+        //Khởi tạo Database
         DatabaseHandler.createNewDatabase();
         
-        // 2. Thiết lập cửa sổ chính
+        
         setTitle("Hệ thống Quản trị Doanh nghiệp Tổng thể (ERP) - Full Version");
         setSize(1500,800); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null); 
         
-        // 3. Khởi tạo tiện ích
+        
         currencyFormatter = NumberFormat.getCurrencyInstance(Locale.of("vi", "VN"));
         quanLyTaiKhoan = new QuanLyTaiKhoan();
         
-        // 4. Khởi tạo danh sách
+        
         danhSachNV = new ArrayList<>();
         danhSachPB = new ArrayList<>();
         danhSachDuAn = new ArrayList<>();
         danhSachLog = new ArrayList<>();
         
-        // 5. Nạp dữ liệu
+        
         loadDataFromDB();
         
         ghiNhatKy("Khởi động", "Ứng dụng đã được bật lên");
 
-        // 6. Tạo giao diện
+        
         JPanel headerPanel = createHeaderPanel();
         add(headerPanel, BorderLayout.NORTH);
 
         tabbedPane = new JTabbedPane();
         
-        // Init Tabs
+        
         tabDashboard = new TabDashboard(this); 
         tabNhanVien = new TabNhanVien(this);
         tabPhongBan = new TabPhongBan(this);
         tabDuAn = new TabDuAn(this);
         tabLuong = new TabLuong(this);
         tabHieuSuat = new TabHieuSuat(this);
-        tabLichLamViec = new TabLichLamViec(this); // [MỚI] Khởi tạo tab Lịch
+        tabLichLamViec = new TabLichLamViec(this); 
         tabTuyenDung = new TabTuyenDung(this);
         tabDaoTao = new TabDaoTao(this);
         tabTaiSan = new TabTaiSan(this);
         tabBaoCao = new TabBaoCao(this);
         tabNhatKy = new TabNhatKy(this);
         tabHeThong = new TabHeThong(this);
-        tabEmail = new TabEmail(this); // [MỚI]
+        tabEmail = new TabEmail(this);
 
-        // Mặc định hiển thị Dashboard trước.
+        
         tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan hệ thống");
 
         add(tabbedPane, BorderLayout.CENTER);
@@ -112,24 +119,24 @@ public class QuanLyNhanVienGUI extends JFrame {
         return currentUser;
     }
 
-    // Hàm phân quyền hiển thị Tab
+    
     private void setupTabsByRole(String role) {
         tabbedPane.removeAll();
         
-        // Ai cũng thấy Dashboard
+        
         tabbedPane.addTab("Dashboard", new ImageIcon(), tabDashboard, "Tổng quan");
         
         if (role.equals("admin")) {
             tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "Quản lý hồ sơ nhân viên");
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "Xem nhân viên theo phòng ban");
-            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca"); // [MỚI]
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca");
             tabbedPane.addTab("Chấm công & Nghỉ phép", null, tabHieuSuat, "Quản lý thời gian làm việc & Vi phạm");
             tabbedPane.addTab("Quản lý Lương", null, tabLuong, "Tính lương & Xuất phiếu lương");
             tabbedPane.addTab("Quản lý Dự án", null, tabDuAn, "Phân công dự án");
             tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "Quản lý Tin tuyển dụng & Ứng viên");
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "Quản lý Khóa học nội bộ");
             tabbedPane.addTab("Tài sản", null, tabTaiSan, "Quản lý cấp phát Tài sản/Thiết bị");
-            tabbedPane.addTab("Gửi Email", null, tabEmail, "Gửi thông báo nội bộ"); // [MỚI]
+            tabbedPane.addTab("Gửi Email", null, tabEmail, "Gửi thông báo nội bộ");
             tabbedPane.addTab("Báo cáo & Thống kê", null, tabBaoCao, "Xem biểu đồ thưởng phạt");
             tabbedPane.addTab("Nhật ký hệ thống", null, tabNhatKy, "Log admin");
             tabbedPane.addTab("Hệ thống & Bảo mật", null, tabHeThong, "Backup, Restore & Đổi mật khẩu");
@@ -138,9 +145,9 @@ public class QuanLyNhanVienGUI extends JFrame {
             tabbedPane.addTab("Quản lý Nhân sự", null, tabNhanVien, "");
             tabbedPane.addTab("Tuyển dụng", null, tabTuyenDung, "");
             tabbedPane.addTab("Đào tạo", null, tabDaoTao, "");
-            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca"); // [MỚI]
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xếp lịch & Phân ca");
             tabbedPane.addTab("Chấm công", null, tabHieuSuat, "");
-            tabbedPane.addTab("Gửi Email", null, tabEmail, ""); // [MỚI]
+            tabbedPane.addTab("Gửi Email", null, tabEmail, "");
             tabbedPane.addTab("Phòng ban", null, tabPhongBan, "");
             tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         } 
@@ -153,22 +160,19 @@ public class QuanLyNhanVienGUI extends JFrame {
         }
         else {
             // User thường
-            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xem lịch làm việc cá nhân"); // [MỚI] - Cho phép nhân viên xem lịch
+            tabbedPane.addTab("Lịch Làm Việc", null, tabLichLamViec, "Xem lịch làm việc cá nhân"); //Cho phép nhân viên xem lịch
             tabbedPane.addTab("Thông tin cá nhân", null, new JPanel(), "Đang cập nhật...");
             tabbedPane.addTab("Hệ thống", null, tabHeThong, "Đổi mật khẩu");
         }
         refreshAllTabs();
     }
 
-    // ========================================================================
-    //                              PHẦN XỬ LÝ DỮ LIỆU (DATABASE)
-    // ========================================================================
     
     private void loadDataFromDB() {
         try (Connection conn = DatabaseHandler.connect();
              Statement stmt = conn.createStatement()) {
             
-            // --- 1. Load Phòng ban ---
+            //Load Phòng ban
             ResultSet rsCheckPB = stmt.executeQuery("SELECT COUNT(*) FROM phong_ban");
             rsCheckPB.next();
             if (rsCheckPB.getInt(1) == 0) {
@@ -183,7 +187,7 @@ public class QuanLyNhanVienGUI extends JFrame {
             }
             rsPB.close();
 
-            // --- 2. Load Dự án ---
+            //Load Dự án
             ResultSet rsCheckDA = stmt.executeQuery("SELECT COUNT(*) FROM du_an");
             rsCheckDA.next();
             if (rsCheckDA.getInt(1) == 0) {
@@ -195,14 +199,13 @@ public class QuanLyNhanVienGUI extends JFrame {
                 danhSachDuAn.add(new DuAn(rsDA.getString("ma_da"), rsDA.getString("ten_da"), rsDA.getInt("do_phuc_tap")));
             }
 
-            // --- 3. Load Nhân viên ---
+            //Load Nhân viên
             ResultSet rsCheckNV = stmt.executeQuery("SELECT COUNT(*) FROM nhan_vien");
             rsCheckNV.next();
             int soLuongNV = rsCheckNV.getInt(1);
-            rsCheckNV.close(); // <--- QUAN TRỌNG: Phải đóng cái này lại trước khi thêm mới
+            rsCheckNV.close();
             if (soLuongNV == 0) {
-                //System.out.println("⚡ Database trống, đang khởi tạo nhân viên mẫu...");
-                // Gọi hàm bên DataSeeder và truyền kết nối hiện tại (conn) vào
+
                 DataSeeder.themNhanVienMau(conn);
             }
             ResultSet rsNV = stmt.executeQuery("SELECT * FROM nhan_vien");
@@ -222,7 +225,7 @@ public class QuanLyNhanVienGUI extends JFrame {
                 danhSachNV.add(nv);
             }
 
-            // --- 4. Load Phân công Dự án ---
+            //Load Phân công Dự án
             ResultSet rsPC = stmt.executeQuery("SELECT * FROM phan_cong");
             while (rsPC.next()) {
                 String maDA = rsPC.getString("ma_da");
@@ -243,7 +246,7 @@ public class QuanLyNhanVienGUI extends JFrame {
                 }
             }
 
-            // --- 5. Load Nhật ký (Log) ---
+            //Load Nhật ký (Log)
             ResultSet rsLog = stmt.executeQuery("SELECT * FROM nhat_ky ORDER BY id DESC LIMIT 50");
             while (rsLog.next()) {
                  danhSachLog.add(new LogEntry(
@@ -254,7 +257,7 @@ public class QuanLyNhanVienGUI extends JFrame {
                  ));
             }
 
-            System.out.println("✅ Đã nạp dữ liệu thành công lên RAM.");
+            //System.out.println(" Đã nạp dữ liệu thành công lên RAM.");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -285,9 +288,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     
     public List<LogEntry> getDanhSachLog() { return danhSachLog; }
 
-    // ========================================================================
-    //                              PHẦN GIAO DIỆN (UI)
-    // ========================================================================
+    //UI
 
     private JPanel createHeaderPanel() {
         JPanel header = new JPanel(new BorderLayout());
@@ -407,7 +408,7 @@ public class QuanLyNhanVienGUI extends JFrame {
                         btnTaoTaiKhoan.setVisible(false);
                     }
                     
-                    // Gọi hàm setup lại các Tab theo quyền
+                    //setup lại các Tab theo quyền
                     setupTabsByRole(role);
                     
                     ghiNhatKy("Đăng nhập", "Role: " + role);
@@ -435,7 +436,6 @@ public class QuanLyNhanVienGUI extends JFrame {
         JTextField txtNewUser = new JTextField();
         JPasswordField txtNewPass = new JPasswordField();
         
-        // ComboBox chọn Role
         String[] roles = {"user", "admin", "hr", "accountant"};
         JComboBox<String> cmbRole = new JComboBox<>(roles);
         
@@ -460,7 +460,6 @@ public class QuanLyNhanVienGUI extends JFrame {
                 return;
             }
 
-            // Gọi hàm thêm tài khoản có tham số Role
             boolean thanhCong = quanLyTaiKhoan.themTaiKhoan(newUser, newPass, role);
             
             if (thanhCong) {

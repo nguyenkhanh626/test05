@@ -1,3 +1,4 @@
+package dataa;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -17,7 +18,7 @@ public class DatabaseHandler {
 
     public static void createNewDatabase() {
         
-        // --- 1. CÁC BẢNG CƠ BẢN (Giai đoạn 1) ---
+        //CÁC BẢNG CƠ BẢN
         String sqlPB = "CREATE TABLE IF NOT EXISTS phong_ban ("
                      + " ma_pb TEXT PRIMARY KEY, "
                      + " ten_pb TEXT NOT NULL)";
@@ -57,7 +58,7 @@ public class DatabaseHandler {
                            + " ma_nv TEXT, "
                            + " PRIMARY KEY(ma_da, ma_nv))";
 
-        // --- 2. CÁC BẢNG CHẤM CÔNG (Giai đoạn 2) ---
+        //CÁC BẢNG CHẤM CÔNG
         String sqlCa = "CREATE TABLE IF NOT EXISTS ca_lam_viec ("
                      + " id INTEGER PRIMARY KEY AUTOINCREMENT, "
                      + " ten_ca TEXT, "
@@ -82,7 +83,7 @@ public class DatabaseHandler {
                            + " trang_thai TEXT, "
                            + " ngay_tao TEXT)";
 
-        // --- 3. CÁC BẢNG ERP (Giai đoạn 3) ---
+        //CÁC BẢNG còn lại
         String sqlTinTuyenDung = "CREATE TABLE IF NOT EXISTS tin_tuyen_dung ("
                                + " id INTEGER PRIMARY KEY AUTOINCREMENT, "
                                + " vi_tri TEXT, "
@@ -118,12 +119,12 @@ public class DatabaseHandler {
                          + " tinh_trang TEXT, "
                          + " ma_nv_su_dung TEXT)";
 
-        // --- 4. [NEW] BẢNG LỊCH LÀM VIỆC (QUẢN LÝ PHÂN CA) ---
+        //BẢNG LỊCH LÀM VIỆC
         // Lưu trữ kế hoạch phân ca cho từng ngày
         String sqlLichLamViec = "CREATE TABLE IF NOT EXISTS lich_lam_viec ("
                               + " id INTEGER PRIMARY KEY AUTOINCREMENT, "
                               + " ma_nv TEXT, "
-                              + " ngay TEXT, " // Định dạng dd/MM/yyyy
+                              + " ngay TEXT, " // dd/MM/yyyy
                               + " ma_ca INTEGER, "
                               + " loai_phan_cong TEXT DEFAULT 'ChinhThuc', " // ChinhThuc, TangCa
                               + " ghi_chu TEXT, "
@@ -147,10 +148,10 @@ public class DatabaseHandler {
             stmt.execute(sqlHocVien);
             stmt.execute(sqlTaiSan);
             
-            // [NEW] Tạo bảng lịch làm việc
+            
             stmt.execute(sqlLichLamViec);
 
-            // --- MIGRATION & DATA SEEDING ---
+            
             try {
                 stmt.execute("ALTER TABLE tai_khoan ADD COLUMN role TEXT DEFAULT 'user'");
             } catch (SQLException e) { /* Cột đã tồn tại */ }

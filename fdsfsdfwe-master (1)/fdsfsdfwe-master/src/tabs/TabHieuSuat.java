@@ -1,5 +1,12 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import dataa.*;
+import doituong.*;
+
 import java.awt.*;
 import java.sql.*;
 import java.text.SimpleDateFormat;
@@ -11,26 +18,22 @@ public class TabHieuSuat extends JPanel {
     private QuanLyNhanVienGUI parent;
     private List<NhanVien> danhSachNV;
 
-    // Components cho phần Chấm công
     private JComboBox<String> cmbCaLamViec;
     private JTextField txtMaNVChamCong;
     private DefaultTableModel modelChamCong;
     private JTable tableChamCong;
     private JLabel lblStatusCheckIn;
     
-    // Nút bấm cần control trạng thái
     private JButton btnCheckIn;
     private JButton btnCheckOut;
     private JButton btnRefresh;
 
-    // Components cho phần Nghỉ phép
     private JTextField txtMaNVNghi;
     private JTextField txtTuNgay, txtDenNgay;
     private JTextArea txtLyDo;
     private DefaultTableModel modelNghiPhep;
     private JTable tableNghiPhep;
 
-    // Components cho phần Vi phạm
     private JTextField txtMaNVViPham;
     private JRadioButton radioDiMuon;
     private JRadioButton radioKhongPhep; 
@@ -56,13 +59,12 @@ public class TabHieuSuat extends JPanel {
         add(tabSub, BorderLayout.CENTER);
     }
 
-    // ================== PHẦN 1: CHẤM CÔNG (ĐÃ TỐI ƯU TỐC ĐỘ) ==================
+    //CHẤM CÔNG
     
     private JPanel createPanelChamCong() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // -- Form nhập liệu --
         JPanel inputPanel = new JPanel(new GridBagLayout());
         inputPanel.setBorder(BorderFactory.createTitledBorder("Ghi nhận Chấm công"));
         GridBagConstraints gbc = new GridBagConstraints();
@@ -71,14 +73,13 @@ public class TabHieuSuat extends JPanel {
         gbc.gridx = 0; gbc.gridy = 0; inputPanel.add(new JLabel("Chọn Ca làm việc:"), gbc);
         gbc.gridx = 1; 
         cmbCaLamViec = new JComboBox<>();
-        loadDanhSachCa(); // Load từ DB
+        loadDanhSachCa();
         inputPanel.add(cmbCaLamViec, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1; inputPanel.add(new JLabel("Mã Nhân viên:"), gbc);
         gbc.gridx = 1; 
         txtMaNVChamCong = new JTextField(15);
         
-        // Thêm sự kiện nhấn Enter để Check-in luôn cho nhanh
         txtMaNVChamCong.addActionListener(e -> xuLyCheckIn());
         inputPanel.add(txtMaNVChamCong, gbc);
 
@@ -102,7 +103,7 @@ public class TabHieuSuat extends JPanel {
 
         panel.add(inputPanel, BorderLayout.NORTH);
 
-        // -- Bảng dữ liệu --
+        //Bảng dữ liệu
         String[] cols = {"ID", "Ngày", "Mã NV", "Ca", "Giờ Vào", "Giờ Ra"};
         modelChamCong = new DefaultTableModel(cols, 0) {
              @Override public boolean isCellEditable(int row, int column) { return false; }
@@ -114,7 +115,6 @@ public class TabHieuSuat extends JPanel {
         btnRefresh.addActionListener(e -> loadBangChamCongHienTai());
         panel.add(btnRefresh, BorderLayout.SOUTH);
 
-        // -- Events --
         btnCheckIn.addActionListener(e -> xuLyCheckIn());
         btnCheckOut.addActionListener(e -> xuLyCheckOut());
 
@@ -125,7 +125,6 @@ public class TabHieuSuat extends JPanel {
     private void loadDanhSachCa() {
         if(cmbCaLamViec == null) return;
         cmbCaLamViec.removeAllItems();
-        // Chạy trên luồng riêng để không đơ lúc mở tab
         new Thread(() -> {
             try (Connection conn = DatabaseHandler.connect();
                  Statement stmt = conn.createStatement();
@@ -135,7 +134,6 @@ public class TabHieuSuat extends JPanel {
                     String item = rs.getInt("id") + " - " + rs.getString("ten_ca") 
                                 + " (" + rs.getString("gio_bat_dau") + "-" + rs.getString("gio_ket_thuc") + ")";
                     
-                    // Cập nhật giao diện phải dùng invokeLater
                     SwingUtilities.invokeLater(() -> cmbCaLamViec.addItem(item));
                 }
             } catch (SQLException e) { e.printStackTrace(); }
@@ -150,13 +148,11 @@ public class TabHieuSuat extends JPanel {
         String caInfo = (String) cmbCaLamViec.getSelectedItem();
         int maCa = Integer.parseInt(caInfo.split(" - ")[0]); 
         
-        // 1. Khóa nút bấm và hiện thông báo chờ
         btnCheckIn.setEnabled(false);
         btnCheckIn.setText("Đang xử lý...");
         lblStatusCheckIn.setText("⏳ Đang kết nối CSDL...");
         lblStatusCheckIn.setForeground(Color.BLUE);
 
-        // 2. Chạy logic DB trên luồng riêng (Background Thread)
         new Thread(() -> {
             String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
             String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
@@ -174,15 +170,18 @@ public class TabHieuSuat extends JPanel {
                 boolean daCheckIn = rs.getInt(1) > 0;
                 rs.close();
 
-                // 3. Cập nhật lại giao diện sau khi có kết quả
                 SwingUtilities.invokeLater(() -> {
                     if (daCheckIn) {
                         lblStatusCheckIn.setText("Lỗi: NV " + maNV + " đã Check-in ca này rồi!");
                         lblStatusCheckIn.setForeground(Color.RED);
                     } else {
                         try {
-                             // Thực hiện Insert (Lưu ý: đoạn này phải try-catch lại vì đang trong lambda)
-                             // Nhưng để đơn giản ta giả lập việc insert thành công ở trên luồng kia rồi
+                            lblStatusCheckIn.setText("Đã Check-in NV " + maNV + " lúc " + gioHienTai);
+                            lblStatusCheckIn.setForeground(new Color(0, 100, 0));
+                            parent.ghiNhatKy("Check-in", "NV: " + maNV + ", Ca: " + maCa);
+                            txtMaNVChamCong.setText(""); 
+                            txtMaNVChamCong.requestFocus(); 
+                            loadBangChamCongHienTai();
                         } catch (Exception ex) {}
                     }
                 });
@@ -195,13 +194,13 @@ public class TabHieuSuat extends JPanel {
                     pInsert.executeUpdate();
                     
                     SwingUtilities.invokeLater(() -> {
-                        lblStatusCheckIn.setText("✅ Check-in thành công: " + maNV + " lúc " + gioHienTai);
+                        lblStatusCheckIn.setText("Check-in thành công: " + maNV + " lúc " + gioHienTai);
                         lblStatusCheckIn.setForeground(new Color(0, 100, 0));
                         parent.ghiNhatKy("Check-in", "NV: " + maNV + ", Ca: " + maCa);
-                        txtMaNVChamCong.setText(""); // Xóa ô nhập để nhập người tiếp theo
-                        txtMaNVChamCong.requestFocus(); // Focus lại để bắn súng barcode tiếp
+                        txtMaNVChamCong.setText("");
+                        txtMaNVChamCong.requestFocus();
                         
-                        loadBangChamCongHienTai(); // Load lại bảng (sẽ chạy thread riêng)
+                        loadBangChamCongHienTai();
                     });
                 }
 
@@ -212,7 +211,6 @@ public class TabHieuSuat extends JPanel {
                     lblStatusCheckIn.setForeground(Color.RED);
                 });
             } finally {
-                // 4. Mở lại nút bấm
                 SwingUtilities.invokeLater(() -> {
                     btnCheckIn.setEnabled(true);
                     btnCheckIn.setText("CHECK-IN (Vào)");
@@ -229,11 +227,9 @@ public class TabHieuSuat extends JPanel {
         String caInfo = (String) cmbCaLamViec.getSelectedItem();
         int maCa = Integer.parseInt(caInfo.split(" - ")[0]);
 
-        // 1. Khóa nút bấm
         btnCheckOut.setEnabled(false);
         btnCheckOut.setText("Đang xử lý...");
 
-        // 2. Chạy luồng riêng
         new Thread(() -> {
             String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
             String gioHienTai = new SimpleDateFormat("HH:mm:ss").format(new Date());
@@ -251,14 +247,14 @@ public class TabHieuSuat extends JPanel {
                 
                 SwingUtilities.invokeLater(() -> {
                     if (rows > 0) {
-                        lblStatusCheckIn.setText("✅ Check-out thành công: " + maNV + " lúc " + gioHienTai);
+                        lblStatusCheckIn.setText("Check-out thành công: " + maNV + " lúc " + gioHienTai);
                         lblStatusCheckIn.setForeground(new Color(0, 100, 0));
                         parent.ghiNhatKy("Check-out", "NV: " + maNV + ", Ca: " + maCa);
                         txtMaNVChamCong.setText("");
                         txtMaNVChamCong.requestFocus();
                         loadBangChamCongHienTai();
                     } else {
-                        lblStatusCheckIn.setText("⚠️ Không tìm thấy bản ghi Check-in để Check-out!");
+                        lblStatusCheckIn.setText("Không tìm thấy bản ghi Check-in để Check-out!");
                         lblStatusCheckIn.setForeground(Color.RED);
                     }
                 });
@@ -278,14 +274,12 @@ public class TabHieuSuat extends JPanel {
     private void loadBangChamCongHienTai() {
         if(modelChamCong == null) return;
         
-        // Disable nút refresh
         if (btnRefresh != null) {
             btnRefresh.setEnabled(false);
             btnRefresh.setText("Đang tải...");
         }
 
         new Thread(() -> {
-            // Xóa bảng cũ trên UI thread
             SwingUtilities.invokeLater(() -> modelChamCong.setRowCount(0));
 
             String ngayHomNay = new SimpleDateFormat("dd/MM/yyyy").format(new Date());
@@ -305,7 +299,6 @@ public class TabHieuSuat extends JPanel {
                         rs.getString("gio_vao"),
                         rs.getString("gio_ra")
                     };
-                    // Thêm dòng mới vào bảng (phải làm trên UI Thread)
                     SwingUtilities.invokeLater(() -> modelChamCong.addRow(rowData));
                 }
             } catch (SQLException e) { e.printStackTrace(); }
@@ -320,13 +313,13 @@ public class TabHieuSuat extends JPanel {
         }).start();
     }
 
-    // ================== PHẦN 2: NGHỈ PHÉP (GIỮ NGUYÊN) ==================
+    //NGHỈ PHÉP
 
     private JPanel createPanelNghiPhep() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // Form xin nghỉ
+        //Form xin nghỉ
         JPanel formPanel = new JPanel(new GridLayout(0, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createTitledBorder("Tạo đơn xin nghỉ phép"));
         
@@ -353,7 +346,7 @@ public class TabHieuSuat extends JPanel {
         
         panel.add(topContainer, BorderLayout.NORTH);
 
-        // Bảng danh sách đơn
+        //Bảng danh sách đơn
         String[] cols = {"ID", "Mã NV", "Từ ngày", "Đến ngày", "Lý do", "Trạng thái"};
         modelNghiPhep = new DefaultTableModel(cols, 0) {
              @Override public boolean isCellEditable(int row, int column) { return false; }
@@ -426,7 +419,7 @@ public class TabHieuSuat extends JPanel {
         } catch (SQLException e) { e.printStackTrace(); }
     }
 
-    // ================== PHẦN 3: XỬ LÝ VI PHẠM (GIỮ NGUYÊN) ==================
+    //XỬ LÝ VI PHẠM
 
     private JPanel createPanelViPham() {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -434,7 +427,7 @@ public class TabHieuSuat extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.WEST;
 
-        // Form nhập liệu phạt
+        //Form nhập liệu phạt
         gbc.gridx = 0; gbc.gridy = 0;
         panel.add(new JLabel("Nhập Mã nhân viên vi phạm:"), gbc);
         
@@ -467,7 +460,7 @@ public class TabHieuSuat extends JPanel {
         btnPhat.addActionListener(e -> xuLyGhiNhanViPham());
         panel.add(btnPhat, gbc);
         
-        // Bảng lịch sử phạt
+        //Bảng lịch sử phạt
         gbc.gridy = 3; gbc.gridx = 0; gbc.gridwidth = 2; gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1.0; gbc.weighty = 1.0; 
         

@@ -1,4 +1,11 @@
+package tabs;
+
 import javax.swing.*;
+
+import MainApp.*;
+import dataa.*;
+import doituong.*;
+
 import java.awt.*;
 import java.util.List;
 import java.util.Map;
@@ -10,20 +17,17 @@ public class TabDashboard extends JPanel {
 
     public TabDashboard(QuanLyNhanVienGUI parent) {
         this.parent = parent;
-        setLayout(new GridLayout(1, 2, 10, 10)); // Chia đôi màn hình
+        setLayout(new GridLayout(1, 2, 10, 10)); //Chia đôi màn hình
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
     }
     
-    // Gọi hàm này mỗi khi dữ liệu thay đổi để vẽ lại biểu đồ
+    
     public void refreshDashboard() {
         removeAll();
         
-        // 1. Chuẩn bị dữ liệu cho Biểu đồ tròn (Nhân viên theo Phòng ban)
         Map<String, Long> nvTheoPB = parent.danhSachNV.stream()
             .collect(Collectors.groupingBy(NhanVien::getPhongBan, Collectors.counting()));
             
-        // 2. Chuẩn bị dữ liệu cho Biểu đồ cột (Lương trung bình theo Thâm niên - Demo giả định)
-        // Ở đây ta đếm số lượng NV theo thâm niên để vẽ
         Map<Integer, Long> nvTheoThamNien = parent.danhSachNV.stream()
             .collect(Collectors.groupingBy(NhanVien::getThamNien, Collectors.counting()));
 
@@ -35,7 +39,7 @@ public class TabDashboard extends JPanel {
         repaint();
     }
 
-    // --- CLASS VẼ BIỂU ĐỒ TRÒN ---
+    //CLASS VẼ BIỂU ĐỒ TRÒN
     class PieChartPanel extends JPanel {
         private String title;
         private Map<String, Long> data;
@@ -54,7 +58,6 @@ public class TabDashboard extends JPanel {
             Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Vẽ tiêu đề
             g2.setFont(new Font("Arial", Font.BOLD, 16));
             g2.drawString(title, 20, 30);
 
@@ -67,7 +70,6 @@ public class TabDashboard extends JPanel {
             int startAngle = 0;
             int i = 0;
             
-            // Vẽ Pie
             int x = 50, y = 50, w = 200, h = 200;
             int legendY = 60;
             
@@ -76,7 +78,6 @@ public class TabDashboard extends JPanel {
                 g2.setColor(colors[i % colors.length]);
                 g2.fillArc(x, y, w, h, startAngle, angle);
                 
-                // Vẽ chú thích (Legend)
                 g2.fillRect(300, legendY, 15, 15);
                 g2.setColor(Color.BLACK);
                 g2.setFont(new Font("Arial", Font.PLAIN, 12));
@@ -90,7 +91,7 @@ public class TabDashboard extends JPanel {
         }
     }
 
-    // --- CLASS VẼ BIỂU ĐỒ CỘT ---
+    //CLASS VẼ BIỂU ĐỒ CỘT
     class BarChartPanel extends JPanel {
         private String title;
         private Map<Integer, Long> data;
@@ -116,11 +117,11 @@ public class TabDashboard extends JPanel {
             long maxVal = data.values().stream().mapToLong(Long::longValue).max().orElse(1);
             int x = 50, yBase = 250;
             int barWidth = 40;
-            int scale = 150; // Chiều cao tối đa
+            int scale = 150;
 
             g2.setFont(new Font("Arial", Font.PLAIN, 12));
-            g2.drawLine(40, 50, 40, yBase); // Trục Y
-            g2.drawLine(40, yBase, 350, yBase); // Trục X
+            g2.drawLine(40, 50, 40, yBase);
+            g2.drawLine(40, yBase, 350, yBase);
 
             for (Map.Entry<Integer, Long> entry : data.entrySet()) {
                 int height = (int) (entry.getValue() * scale / maxVal);

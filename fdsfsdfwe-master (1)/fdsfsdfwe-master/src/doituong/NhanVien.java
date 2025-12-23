@@ -1,3 +1,4 @@
+package doituong;
 public class NhanVien {
 
     private String maNhanVien;

@@ -1,3 +1,4 @@
+package dataa;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -13,14 +14,12 @@ public class DataSeeder {
     private static final String[] TEN_DEM = {"Văn", "Thị", "Đức", "Thành", "Ngọc", "Minh", "Quốc", "Gia", "Bảo", "Hữu", "Thanh", "Mạnh"};
     private static final String[] TEN = {"Hùng", "Lan", "Tuấn", "Hương", "Dũng", "Hoa", "Nam", "Mai", "Cường", "Trang", "Huy", "Thảo", "Long", "Vân"};
 
-    /**
-     * Hàm này nhận Connection từ GUI để thêm dữ liệu mà không gây xung đột
-     */
+    
     public static void themNhanVienMau(Connection conn) {
         if (conn == null) return;
 
         try {
-            // 1. Lấy danh sách tên các phòng ban hiện có
+            
             List<String> listPhongBan = new ArrayList<>();
             try (Statement stmt = conn.createStatement();
                  ResultSet rs = stmt.executeQuery("SELECT ten_pb FROM phong_ban")) {
@@ -29,13 +28,13 @@ public class DataSeeder {
                 }
             }
 
-            if (listPhongBan.isEmpty()) return; // Không có phòng ban thì không thêm NV
+            if (listPhongBan.isEmpty()) return;
 
-            // 2. Chuẩn bị câu lệnh Insert
+            
             String sql = "INSERT INTO nhan_vien (ma_nv, ho_ten, phong_ban, sdt, email, ngay_sinh, cccd, tham_nien, diem_vi_pham, diem_thuong_da) "
                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
-            // Tắt auto-commit để chạy Batch cho nhanh và an toàn
+            
             boolean autoCommitCu = conn.getAutoCommit();
             conn.setAutoCommit(false);
 
@@ -43,7 +42,7 @@ public class DataSeeder {
                 Random rand = new Random();
                 int startID = 0; 
 
-                // Mỗi phòng ban thêm 10 người
+                
                 for (String tenPB : listPhongBan) {
                     for (int i = 0; i < 10; i++) {
                         startID++;
@@ -73,13 +72,13 @@ public class DataSeeder {
                     }
                 }
                 pstmt.executeBatch();
-                conn.commit(); // Xác nhận lưu vào DB
-                System.out.println("✅ Đã sinh dữ liệu mẫu thành công!");
+                conn.commit(); 
+                System.out.println("Sinh dữ liệu mẫu thành công!");
             } catch (Exception e) {
-                conn.rollback(); // Nếu lỗi thì hoàn tác
+                conn.rollback(); 
                 e.printStackTrace();
             } finally {
-                // Trả lại trạng thái commit cũ cho Connection của GUI
+                
                 conn.setAutoCommit(autoCommitCu);
             }
 

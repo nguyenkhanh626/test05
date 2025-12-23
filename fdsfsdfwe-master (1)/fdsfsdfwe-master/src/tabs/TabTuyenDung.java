@@ -1,5 +1,11 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import dataa.*;
+
 import java.awt.*;
 import java.sql.*;
 
@@ -9,7 +15,6 @@ public class TabTuyenDung extends JPanel {
     private DefaultTableModel modelTin, modelUngVien;
     private JTable tableTin, tableUngVien;
     
-    // Form components
     private JTextField txtViTri, txtSoLuong, txtHanNop;
     private JTextField txtTenUV, txtSdtUV, txtEmailUV;
     private JComboBox<String> cmbTrangThaiUV;

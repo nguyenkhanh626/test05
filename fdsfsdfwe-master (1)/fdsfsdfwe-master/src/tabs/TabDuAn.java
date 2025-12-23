@@ -1,5 +1,12 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import dataa.*;
+import doituong.*;
+
 import java.awt.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;

@@ -1,4 +1,10 @@
+package tabs;
+
 import javax.swing.*;
+
+import MainApp.*;
+import doituong.*;
+
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
@@ -12,12 +18,12 @@ public class TabHeThong extends JPanel {
     private QuanLyNhanVienGUI parent;
     private QuanLyTaiKhoan quanLyTaiKhoan;
 
-    // Components cho đổi mật khẩu
+    
     private JPasswordField txtPassCu;
     private JPasswordField txtPassMoi;
     private JPasswordField txtPassXacNhan;
 
-    // Đường dẫn database gốc (đang dùng)
+    
     private static final String DB_SOURCE = "quanlynhansu.db";
 
     public TabHeThong(QuanLyNhanVienGUI parent) {
@@ -27,12 +33,11 @@ public class TabHeThong extends JPanel {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // --- PHẦN 1: QUẢN LÝ DỮ LIỆU (BACKUP/RESTORE) ---
+        //BACKUP/RESTORE
         JPanel pnlData = new JPanel(new GridLayout(1, 2, 20, 0));
         pnlData.setBorder(BorderFactory.createTitledBorder("Quản trị Cơ sở dữ liệu"));
         pnlData.setPreferredSize(new Dimension(0, 150));
 
-        // Panel Backup
         JPanel pnlBackup = new JPanel(new GridBagLayout());
         JButton btnBackup = new JButton("Sao lưu Dữ liệu (Backup)");
         btnBackup.setIcon(UIManager.getIcon("FileView.floppyDriveIcon"));
@@ -46,7 +51,6 @@ public class TabHeThong extends JPanel {
         gbc.gridx = 0; gbc.gridy = 0; pnlBackup.add(btnBackup, gbc);
         gbc.gridx = 0; gbc.gridy = 1; gbc.insets = new Insets(10,0,0,0); pnlBackup.add(lblBackupInfo, gbc);
 
-        // Panel Restore
         JPanel pnlRestore = new JPanel(new GridBagLayout());
         JButton btnRestore = new JButton("Phục hồi Dữ liệu (Restore)");
         btnRestore.setIcon(UIManager.getIcon("FileView.computerIcon"));
@@ -62,7 +66,7 @@ public class TabHeThong extends JPanel {
         pnlData.add(pnlBackup);
         pnlData.add(pnlRestore);
 
-        // --- PHẦN 2: ĐỔI MẬT KHẨU ---
+        //ĐỔI MẬT KHẨU
         JPanel pnlSecurity = new JPanel(new BorderLayout());
         pnlSecurity.setBorder(BorderFactory.createTitledBorder("Bảo mật & Tài khoản"));
         
@@ -86,15 +90,14 @@ public class TabHeThong extends JPanel {
 
         pnlSecurity.add(formPass, BorderLayout.CENTER);
         
-        // --- PHẦN 3: THÔNG TIN HỆ THỐNG (BOTTOM) ---
+        //THÔNG TIN HỆ THỐNG (BOTTOM)
         JPanel pnlInfo = new JPanel(new FlowLayout(FlowLayout.CENTER));
         String osInfo = System.getProperty("os.name") + " (" + System.getProperty("os.arch") + ")";
         String javaInfo = System.getProperty("java.version");
-        JLabel lblSys = new JLabel("Hệ thống: " + osInfo + " | Java: " + javaInfo + " | User: " + System.getProperty("user.name"));
+        JLabel lblSys = new JLabel("Hệ thống: " + osInfo + " | Java: " + javaInfo);
         lblSys.setForeground(Color.GRAY);
         pnlInfo.add(lblSys);
 
-        // --- LAYOUT CHÍNH ---
         JPanel mainCenter = new JPanel(new BorderLayout(10, 10));
         mainCenter.add(pnlData, BorderLayout.NORTH);
         mainCenter.add(pnlSecurity, BorderLayout.CENTER);
@@ -102,13 +105,12 @@ public class TabHeThong extends JPanel {
         add(mainCenter, BorderLayout.CENTER);
         add(pnlInfo, BorderLayout.SOUTH);
 
-        // --- EVENTS ---
         btnBackup.addActionListener(e -> xuLyBackup());
         btnRestore.addActionListener(e -> xuLyRestore());
         btnDoiPass.addActionListener(e -> xuLyDoiMatKhau());
     }
 
-    // [MỚI] Hàm yêu cầu xác thực mật khẩu trước khi thực hiện hành động nhạy cảm
+    //Yêu cầu xác thực mật khẩu trước khi thực hiện hành động nhạy cảm
     private boolean yeuCauXacThuc() {
         String currentUser = parent.getCurrentUser();
         if (currentUser == null || currentUser.isEmpty()) {
@@ -123,7 +125,7 @@ public class TabHeThong extends JPanel {
 
         if (okCxl == JOptionPane.OK_OPTION) {
             String password = new String(pf.getPassword());
-            // Tái sử dụng hàm đăng nhập để kiểm tra pass
+            //Tái sử dụng hàm đăng nhập để kiểm tra pass
             if (quanLyTaiKhoan.dangNhap(currentUser, password) != null) {
                 return true;
             } else {
@@ -135,7 +137,7 @@ public class TabHeThong extends JPanel {
     }
 
     private void xuLyBackup() {
-        // [CẬP NHẬT] Thêm lớp bảo mật
+        //Thêm lớp bảo mật
         if (!yeuCauXacThuc()) return;
 
         JFileChooser fileChooser = new JFileChooser();
@@ -163,7 +165,7 @@ public class TabHeThong extends JPanel {
     }
 
     private void xuLyRestore() {
-        // [CẬP NHẬT] Thêm lớp bảo mật
+        //Thêm lớp bảo mật
         if (!yeuCauXacThuc()) return;
 
         int confirm = JOptionPane.showConfirmDialog(this, 
@@ -181,13 +183,13 @@ public class TabHeThong extends JPanel {
             File fileDest = new File(DB_SOURCE);
             
             try {
-                // Copy đè file
+                //Copy đè file
                 Files.copy(fileSource.toPath(), fileDest.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 
                 JOptionPane.showMessageDialog(this, "Phục hồi thành công! Vui lòng khởi động lại ứng dụng để áp dụng dữ liệu mới.");
                 parent.ghiNhatKy("Hệ thống", "Restore database từ: " + fileSource.getName());
                 
-                // Tự động tắt ứng dụng
+                //Tự động tắt ứng dụng
                 System.exit(0);
                 
             } catch (IOException ex) {

@@ -1,5 +1,12 @@
+package tabs;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+
+import MainApp.*;
+import doituong.*;
+import dataa.*;
+
 import java.awt.*;
 import java.text.NumberFormat;
 import java.util.List;
@@ -33,7 +40,7 @@ public class TabLuong extends JPanel {
         topPanel.add(btnInPhieu);
         add(topPanel, BorderLayout.NORTH);
 
-        // Thêm cột BHXH và Thuế
+        //BHXH và Thuế
         String[] columnNames = {
             "Mã NV", "Họ Tên", "Tổng Thu Nhập", 
             "Khấu trừ BHXH (8%)", "Thuế TNCN", "Phạt", "THỰC LĨNH"
@@ -53,16 +60,16 @@ public class TabLuong extends JPanel {
         final long PHAT_VI_PHAM = 500_000;
 
         for (NhanVien nv : danhSachNV) {
-            // 1. Thu nhập
+            //Thu nhập
             long phuCapThamNien = nv.getThamNien() * 1_000_000L;
             long thuongDA = nv.getDiemThuongDuAn() * 2_000_000L;
             long tongThuNhap = LUONG_CO_BAN + phuCapThamNien + thuongDA;
 
-            // 2. Khấu trừ
+            //Khấu trừ
             long phat = nv.getDiemViPham() * PHAT_VI_PHAM;
             long bhxh = (long) (tongThuNhap * 0.08); // 8% BHXH
             
-            // 3. Tính Thuế TNCN (Giả định >11tr mới đóng thuế 10% phần dư)
+            //Tính Thuế TNCN(Giả định >11tr đóng thuế 10% phần dư)
             long thuNhapChiuThue = tongThuNhap - bhxh - 11_000_000;
             long thueTNCN = 0;
             if (thuNhapChiuThue > 0) {
