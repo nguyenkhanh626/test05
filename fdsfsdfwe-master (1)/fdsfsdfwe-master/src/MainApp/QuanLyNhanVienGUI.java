@@ -512,7 +512,7 @@ public class QuanLyNhanVienGUI extends JFrame {
     public void updatePhongBanComboBox() {
         if (tabNhanVien != null) tabNhanVien.updatePhongBanComboBox();
         if (tabPhongBan != null) tabPhongBan.updatePhongBanComboBox();
-    }
+    } 
 
     public static void main(String[] args) {
 
